@@ -21,9 +21,11 @@ The renderer runs with `contextIsolation: true` and `nodeIntegration: false`. It
 | `src/rules.js` | Offline categorizer: known domains, keywords, folder names |
 | `src/ollama.js` | Local AI categorizer (Ollama HTTP API, structured JSON output, automatic CPU fallback) |
 | `src/claude.js` | Claude categorizer (Anthropic SDK, structured JSON output). Also holds the shared prompt and schema |
+| `src/browsersync.js` | "Sync to browsers": finds deleted URLs in each profile, then removes them (refuses while the browser runs, backs up first, writes atomically). Chromium: edits the `Bookmarks` JSON and drops its checksum. Firefox: deletes rows, fixes `foreign_count` and positions, and writes `moz_bookmarks_deleted` tombstones for Firefox Sync |
 | `src/linkcheck.js` | HEAD/GET link checker with timeouts and limited concurrency |
 | `renderer/` | UI: sidebar views, list, detail panel, dialogs, right-click menu |
 | `scripts/test-db.js` | Integration test against the browsers on this PC |
+| `scripts/test-sync.js` | Runs browser sync on copies of this PC's browser files and checks the result |
 | `scripts/smoke.js` | Prints counts per browser profile |
 
 ## Database

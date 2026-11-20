@@ -68,6 +68,21 @@ Other models work too: type the name in the *Ollama model* box (for example `lla
 
 You can also set the `ANTHROPIC_API_KEY` environment variable instead of saving the key.
 
+## 6. Delete bookmarks from your browsers too
+
+Deleting in the app only removes bookmarks from the library. To remove them from the browsers as well:
+
+1. Delete bookmarks in the app (select them and click **Delete selected**, or right-click a cleanup view → *Delete all*).
+2. **Fully close** the browsers. Edge and Chrome often keep running in the system tray. Right-click their tray icon → *Close*, or turn off *Startup boost* / *Continue running background apps* in the browser's settings.
+3. Click **Sync to browsers**. It lists, per browser profile, which bookmarks would be removed. Tick the profiles and click **Delete from selected browsers**.
+
+A backup of each file is saved next to it, named `Bookmarks.bookmark-library-backup-<date>` (Chromium) or `places.sqlite.bookmark-library-backup-<date>` (Firefox). To undo, close the browser and copy the backup back over the original file.
+
+**About browser sync accounts**
+
+- **Firefox Sync**: deletions are recorded the way Firefox itself does it, so they should reach your other devices.
+- **Chrome / Edge sync**: these browsers don't expect their file to change while they're closed, and the sync server may put the bookmarks back when the browser starts. After reopening the browser, close it again and click **Check again**. If bookmarks came back, either delete them once in the browser itself, or turn off bookmark sync, run the sync, and turn it on again.
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -81,6 +96,9 @@ You can also set the `ANTHROPIC_API_KEY` environment variable instead of saving 
 | `handshake failed … SSL error` in the terminal | Harmless. A site's certificate failed during a favicon or link check. |
 | Electron exits with `FATAL` right away | Move the project to a folder in your user profile and run `npm start` there. |
 | Firefox: "File is locked" | Close Firefox and import again. |
+| Sync: "… is running" although the window is closed | The browser is still running in the background. Close it from the system tray, or end it in Task Manager. |
+| Sync: "Firefox did not shut down cleanly" | Open Firefox, close it normally, then try again. |
+| Bookmarks came back after syncing (Chrome/Edge) | See *About browser sync accounts* above. |
 
 ## Updating
 

@@ -7,6 +7,7 @@ const claude = require('./src/claude');
 const ollama = require('./src/ollama');
 const rules = require('./src/rules');
 const { checkAll } = require('./src/linkcheck');
+const browserSync = require('./src/browsersync');
 
 let win, lib;
 const dataDir = () => app.getPath('userData');
@@ -97,6 +98,11 @@ ipcMain.handle('library:list', () => lib.list());
 ipcMain.handle('bookmark:update', (_e, id, patch) => lib.update(id, patch));
 ipcMain.handle('bookmark:remove', (_e, ids) => lib.remove(ids));
 ipcMain.handle('open:url', (_e, url) => openExternal(url));
+
+// Sync deletions to browsers: preview what would be removed, then remove it from the chosen profiles.
+ipcMain.handle('browsers:plan', () => browserSync.plan(lib.removedNorms(), lib.SQL));
+ipcMain.handle('browsers:apply', (_e, labels) => browserSync.apply(labels, lib.removedNorms(), lib.SQL));
+ipcMain.handle('browsers:reveal', (_e, file) => { if (typeof file === 'string' && fs.existsSync(file)) shell.showItemInFolder(file); });
 
 ipcMain.handle('key:status', async () => ({ saved: !!(await loadKey()), env: !!process.env.ANTHROPIC_API_KEY }));
 ipcMain.handle('key:save', async (_e, key) => {

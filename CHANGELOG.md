@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 (2026-11-20)
+
+- Multi-select in the list: checkboxes, Ctrl+click, Shift+click ranges, Ctrl+A, and **Delete selected** (or the Del key)
+- **Sync to browsers**: removes bookmarks you deleted in the library from Chrome, Edge, Brave, Vivaldi, Opera and Firefox. It previews per profile, requires the browser to be closed, backs up every file, and writes Firefox Sync tombstones
+- `npm test` also tests browser sync on copies of your browser files
+
 ## 0.1.0 (2026-11-20)
 
 First version.

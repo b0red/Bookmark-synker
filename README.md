@@ -2,7 +2,7 @@
 
 A Windows desktop app that reads the bookmarks from every browser on your PC (Chrome, Edge, Brave, Vivaldi, Opera, Firefox), merges the duplicates, and gives you one searchable, categorized library. You can sort it with built-in rules, a local AI (Ollama), or Claude, check which links are dead, clean out what you no longer need, and export the result back to any browser.
 
-Your browsers' own bookmarks are only ever **read**, never changed.
+Your browsers' own bookmarks are only **read**, except when you click **Sync to browsers**, which removes the ones you deleted (after showing a preview and making a backup).
 
 ## Features
 
@@ -12,7 +12,9 @@ Your browsers' own bookmarks are only ever **read**, never changed.
 | **Merge duplicates** | URLs are cleaned up (tracking parameters, `www.`, trailing slashes), so the same page saved in three browsers becomes one entry that remembers every place it came from. |
 | **Auto-categorize** | Assigns a category and tags. Choose the engine in ⚙ Settings: **Built-in rules** (offline, instant), **Local AI** with Ollama (free, private), or **Claude** (best results, needs an API key). |
 | **Smart views** | Favorites, uncategorized, no visit history, not opened in a year, saved in several browsers, dead links, links with problems. |
+| **Select & delete** | Tick bookmarks (or Ctrl+click / Shift+click, Ctrl+A for all), then **Delete selected** or press <kbd>Del</kbd>. |
 | **Clean up** | Right-click **Not opened in a year**, **Dead links** or **Links with problems** → *Delete all*. Deleted links stay deleted on future imports. |
+| **Sync to browsers** | Removes what you deleted here from the browsers' own bookmarks too. It shows a preview first, needs the browser closed, and backs up every file. |
 | **Search** | Free text, or filters: `tag:python`, `cat:cooking`, `site:github.com`, `in:firefox`. <kbd>Ctrl</kbd>+<kbd>K</kbd> focuses search, and <kbd>Enter</kbd> opens the top hit. |
 | **Check links** | Finds dead pages (404, domain gone) and offers the Wayback Machine copy. |
 | **Rediscover** | Opens a random bookmark from the current view. |
@@ -59,7 +61,7 @@ To back up your library, copy `library.sqlite`. To start over, delete it.
 ## Development
 
 ```powershell
-npm test       # imports your browsers into a temporary library and checks merge, re-import, edits and deletes
+npm test       # library tests, plus "sync to browsers" on COPIES of your browser files (the real ones aren't touched)
 npm run smoke  # prints bookmark counts per browser profile
 ```
 

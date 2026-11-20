@@ -10,6 +10,8 @@ const state = {
   sort: 'added',
   selectedId: null,
   visible: [],
+  checked: new Set(), // multi-selection (checkboxes)
+  anchor: null,       // last clicked row, for Shift+click ranges
 };
 
 const SMART = [
@@ -151,10 +153,16 @@ function renderList() {
   $('#view-count').textContent = `${state.visible.length} bookmark${state.visible.length === 1 ? '' : 's'}`;
   $('#empty').classList.toggle('hidden', state.items.length > 0);
 
+  // Only what's visible can stay selected, so "Delete selected" never hits hidden rows.
+  const visibleIds = new Set(state.visible.map(b => b.id));
+  for (const id of state.checked) if (!visibleIds.has(id)) state.checked.delete(id);
+
   const html = state.visible.slice(0, 3000).map(b => {
     const status = b.status === 'dead' || b.status === 'warn' || b.status === 'ok'
       ? `<span class="dot ${b.status}" title="${b.status}${b.status_code ? ' ' + b.status_code : ''}"></span>` : '';
-    return `<li data-id="${b.id}" class="${b.id === state.selectedId ? 'selected' : ''}">
+    const on = state.checked.has(b.id);
+    return `<li data-id="${b.id}" class="${b.id === state.selectedId ? 'selected' : ''}${on ? ' checked' : ''}">
+      <input type="checkbox" class="pick" tabindex="-1" ${on ? 'checked' : ''} title="Select">
       ${favicon(b)}
       <div class="main-col"><div class="t">${b.favorite ? '<span class="star">★</span> ' : ''}${esc(b.title || b.url)}</div>
       <div class="u">${esc(b.domain)}${b.folder ? ' · ' + esc(b.folder) : ''}</div></div>
@@ -162,6 +170,7 @@ function renderList() {
     </li>`;
   }).join('');
   $('#list').innerHTML = html;
+  syncChecks();
 
   // Broken favicons fall back to a coloured letter.
   for (const img of $('#list').querySelectorAll('img')) {
@@ -279,6 +288,63 @@ $('#import-html').onclick = async () => {
   if (results.length) { showImportResults(results); await reload(); }
 };
 $('#import-close').onclick = () => $('#dlg-import').close();
+
+// ---------- sync deletions to browsers ----------
+
+async function loadSyncPlan() {
+  $('#sync-sources').innerHTML = '<p class="muted">Looking through your browsers…</p>';
+  $('#sync-go').disabled = true;
+  const plan = await window.api.browserSyncPlan();
+  const dlg = $('#dlg-sync');
+  dlg.plan = plan;
+  const any = plan.some(p => p.matches.length);
+  $('#sync-go').disabled = !any;
+  if (!plan.length) { $('#sync-sources').innerHTML = '<p class="muted">No browser profiles found.</p>'; return; }
+  $('#sync-sources').innerHTML = (any ? '' : '<p class="muted">Nothing to do: none of the bookmarks you deleted are left in your browsers.</p>') +
+    plan.filter(p => p.matches.length || p.error).map((p, i) => {
+      const n = p.matches.length;
+      const notes = [];
+      if (p.running) notes.push(`<span class="warn-text">${esc(p.browser)} is running. Close it completely first (also check the system tray).</span>`);
+      if (p.synced) notes.push(`<span class="warn-text">This profile syncs with your ${p.browser === 'Firefox' ? 'Firefox' : esc(p.browser)} account. ${p.browser === 'Firefox'
+        ? 'Firefox Sync should pass the deletions on to your other devices.'
+        : 'The sync server may put deleted bookmarks back. Click “Check again” after reopening the browser to see if any returned.'}</span>`);
+      if (p.error) notes.push(`<span class="err">${esc(p.error)}</span>`);
+      const preview = p.matches.slice(0, 8).map(m => `<div class="p">• ${esc(m.title || m.url)} <span class="muted">${esc(m.folder)}</span></div>`).join('') +
+        (n > 8 ? `<div class="p">… and ${n - 8} more</div>` : '');
+      const idx = plan.indexOf(p);
+      return `<label class="sync-src"><input type="checkbox" data-i="${idx}" ${n && !p.running && !p.error ? 'checked' : ''} ${n && !p.error ? '' : 'disabled'}>
+        <div><div><b>${esc(p.label)}</b>: ${n} to delete</div>${notes.map(x => `<div class="p">${x}</div>`).join('')}${preview}</div></label>`;
+    }).join('');
+}
+
+$('#btn-sync').onclick = async () => {
+  $('#sync-result').innerHTML = '';
+  $('#dlg-sync').showModal();
+  await loadSyncPlan();
+};
+$('#sync-refresh').onclick = () => { $('#sync-result').innerHTML = ''; loadSyncPlan(); };
+$('#sync-close').onclick = () => $('#dlg-sync').close();
+$('#sync-go').onclick = async () => {
+  const dlg = $('#dlg-sync');
+  const chosen = [...dlg.querySelectorAll('#sync-sources input:checked')].map(c => dlg.plan[+c.dataset.i]);
+  if (!chosen.length) return;
+  const total = chosen.reduce((n, p) => n + p.matches.length, 0);
+  if (!confirm(`Delete ${total} bookmarks from:\n\n${chosen.map(p => `• ${p.label} (${p.matches.length})`).join('\n')}\n\nA backup of each bookmark file is saved next to it first.`)) return;
+  $('#sync-go').disabled = true;
+  try {
+    const results = await window.api.browserSyncApply(chosen.map(p => p.label));
+    $('#sync-result').innerHTML = results.map(r => r.error
+      ? `<div class="err">${esc(r.label)}: ${esc(r.error)}</div>`
+      : `<div>${esc(r.label)}: <b>${r.removed} deleted</b>${r.backup ? ` · <a href="#" data-file="${esc(r.backup)}">show backup</a>` : ''}</div>`).join('');
+    await loadSyncPlan();
+  } finally {
+    $('#sync-go').disabled = !dlg.plan?.some(p => p.matches.length);
+  }
+};
+$('#sync-result').addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-file]');
+  if (a) { e.preventDefault(); window.api.revealFile(a.dataset.file); }
+});
 
 // ---------- settings ----------
 
@@ -408,8 +474,65 @@ $('#sidebar').addEventListener('click', (e) => {
   const el = e.target.closest('[data-type]');
   if (!el) return;
   state.view = { type: el.dataset.type, value: el.dataset.value };
+  state.checked.clear(); state.anchor = null;
   renderSidebar(); renderList();
 });
+
+// ---------- multi-select ----------
+
+// Updates checkboxes, row highlight and the selection bar without re-rendering the list (keeps scroll position).
+function syncChecks() {
+  for (const li of $('#list').children) {
+    const on = state.checked.has(+li.dataset.id);
+    li.classList.toggle('checked', on);
+    li.querySelector('.pick').checked = on;
+  }
+  const n = state.checked.size;
+  $('#selbar').classList.toggle('hidden', n === 0);
+  $('#list').classList.toggle('picking', n > 0);
+  $('#sel-count').textContent = `${n} selected`;
+  const all = $('#pick-all');
+  all.checked = n > 0 && n === state.visible.length;
+  all.indeterminate = n > 0 && n < state.visible.length;
+}
+
+function toggleCheck(id, shift) {
+  if (shift && state.anchor != null) {
+    const ids = state.visible.map(b => b.id);
+    const a = ids.indexOf(state.anchor), b = ids.indexOf(id);
+    if (a !== -1 && b !== -1) {
+      for (let i = Math.min(a, b); i <= Math.max(a, b); i++) state.checked.add(ids[i]);
+      state.anchor = id;
+      syncChecks();
+      return;
+    }
+  }
+  if (state.checked.has(id)) state.checked.delete(id); else state.checked.add(id);
+  state.anchor = id;
+  syncChecks();
+}
+
+function clearChecks() { state.checked.clear(); state.anchor = null; syncChecks(); }
+
+async function deleteBookmarks(ids, what) {
+  if (!ids.length) return;
+  if (!confirm(`Delete ${what} from the library?\n\nFuture imports will skip these links. To remove them from your browsers too, use “Sync to browsers”.`)) return;
+  await window.api.remove(ids);
+  if (ids.includes(state.selectedId)) state.selectedId = null;
+  for (const id of ids) state.checked.delete(id);
+  await reload();
+  toast(`Deleted ${ids.length} bookmark${ids.length === 1 ? '' : 's'}.`);
+}
+
+$('#pick-all').addEventListener('change', (e) => {
+  if (e.target.checked) state.visible.forEach(b => state.checked.add(b.id)); else state.checked.clear();
+  syncChecks();
+});
+$('#sel-clear').onclick = clearChecks;
+$('#sel-delete').onclick = () => {
+  const n = state.checked.size;
+  deleteBookmarks([...state.checked], `${n} selected bookmark${n === 1 ? '' : 's'}`);
+};
 
 // Right-click on a cleanup view (e.g. "Dead links") offers to delete everything in it.
 const DELETABLE_VIEWS = new Set(['stale', 'dead', 'warn']);
@@ -427,14 +550,9 @@ $('#sidebar').addEventListener('contextmenu', (e) => {
   menu.style.left = Math.min(e.clientX, innerWidth - 240) + 'px';
   menu.style.top = Math.min(e.clientY, innerHeight - 60) + 'px';
   menu.classList.remove('hidden');
-  menu.querySelector('[data-act="delete-all"]').onclick = async () => {
+  menu.querySelector('[data-act="delete-all"]').onclick = () => {
     hideMenu();
-    if (!targets.length) return;
-    if (!confirm(`Delete all ${targets.length} bookmarks in “${view.name}” from the library?\n\nYour browsers' own bookmarks are not touched, and future imports will skip these links.`)) return;
-    await window.api.remove(targets.map(b => b.id));
-    if (targets.some(b => b.id === state.selectedId)) state.selectedId = null;
-    await reload();
-    toast(`Deleted ${targets.length} bookmarks.`);
+    deleteBookmarks(targets.map(b => b.id), `all ${targets.length} bookmarks in “${view.name}”`);
   };
 });
 document.addEventListener('click', (e) => { if (!e.target.closest('#ctxmenu')) hideMenu(); });
@@ -444,13 +562,23 @@ window.addEventListener('blur', hideMenu);
 $('#list').addEventListener('click', (e) => {
   const li = e.target.closest('li');
   if (!li) return;
-  state.selectedId = +li.dataset.id;
+  const id = +li.dataset.id;
+  // Checkbox, Ctrl+click or Shift+click change the multi-selection; a plain click opens the details.
+  if (e.target.classList.contains('pick') || e.ctrlKey || e.metaKey || e.shiftKey) {
+    if (e.shiftKey) e.preventDefault();
+    toggleCheck(id, e.shiftKey);
+    getSelection()?.removeAllRanges();
+    return;
+  }
+  state.anchor = id;
+  state.selectedId = id;
   for (const x of $('#list').querySelectorAll('li.selected')) x.classList.remove('selected');
   li.classList.add('selected');
   renderDetail();
 });
 $('#list').addEventListener('dblclick', (e) => {
   const li = e.target.closest('li');
+  if (e.target.classList.contains('pick') || e.ctrlKey || e.shiftKey) return;
   const b = li && state.items.find(x => x.id === +li.dataset.id);
   if (b) window.api.open(b.url);
 });
@@ -467,6 +595,19 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     $('#search').focus();
     $('#search').select();
+    return;
+  }
+  // Selection shortcuts, only when not typing in a field or using a dialog.
+  const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) && !document.activeElement.classList.contains('pick-all');
+  if (typing || document.querySelector('dialog[open]')) return;
+  if (e.ctrlKey && e.key === 'a') {
+    e.preventDefault();
+    state.visible.forEach(b => state.checked.add(b.id));
+    syncChecks();
+  } else if (e.key === 'Delete' && state.checked.size) {
+    $('#sel-delete').click();
+  } else if (e.key === 'Escape' && state.checked.size) {
+    clearChecks();
   }
 });
 

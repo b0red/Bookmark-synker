@@ -18,6 +18,7 @@
       <button id="btn-check" title="Check every bookmark in this view for dead links">Check links</button>
       <button id="btn-random" title="Show a random bookmark from this view">Rediscover</button>
       <button id="btn-export" title="Export this view as a bookmarks.html file any browser can import">Export</button>
+      <button id="btn-sync" title="Delete the bookmarks you deleted here from your browsers too">Sync to browsers</button>
       <button id="btn-settings" class="icon" title="Settings">⚙</button>
     </div>
   </header>
@@ -26,7 +27,7 @@
   <main class="layout">
     <nav id="sidebar" class="sidebar"></nav>
     <section class="content">
-      <div class="listhead"><span id="view-title"></span><span id="view-count" class="muted"></span>
+      <div class="listhead"><input type="checkbox" id="pick-all" class="pick-all" title="Select all in this view"><span id="view-title"></span><span id="view-count" class="muted"></span>
         <select id="sort">
           <option value="added">Newest first</option>
           <option value="added-asc">Oldest first</option>
@@ -34,6 +35,12 @@
           <option value="domain">Site</option>
           <option value="used">Recently opened</option>
         </select>
+      </div>
+      <div id="selbar" class="selbar hidden">
+        <b id="sel-count"></b>
+        <button id="sel-delete" class="danger">Delete selected</button>
+        <button id="sel-clear">Clear selection</button>
+        <span class="muted small">Ctrl+click or Shift+click to select more · Del deletes</span>
       </div>
       <ul id="list" class="list"></ul>
       <div id="empty" class="empty hidden">
@@ -54,6 +61,19 @@
       <span class="spacer"></span>
       <button id="import-close">Close</button>
       <button id="import-go" class="primary">Import selected</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-sync">
+    <h2>Sync deletions to browsers</h2>
+    <p class="muted">Removes the bookmarks you deleted in this app from your browsers' own bookmarks. Each browser must be fully closed, and every file is backed up first.</p>
+    <div id="sync-sources" class="sources"></div>
+    <div id="sync-result" class="result"></div>
+    <div class="row">
+      <button id="sync-refresh">Check again</button>
+      <span class="spacer"></span>
+      <button id="sync-close">Close</button>
+      <button id="sync-go" class="primary">Delete from selected browsers</button>
     </div>
   </dialog>
 

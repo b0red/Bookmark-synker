@@ -3,7 +3,9 @@
 ## Next up
 
 - [ ] **Undo for deletes**: a "Recently deleted" view that can restore links, and clear them from the skip list
-- [ ] **Multi-select in the list** (Ctrl/Shift+click) for bulk delete, bulk category change and bulk favorite
+- [ ] **Bulk actions on the selection**: change category, add tags, favorite (delete is done)
+- [ ] **Chrome/Edge sync**: find a way to delete that the sync server respects (e.g. a small browser extension using the bookmarks API)
+- [ ] **Restore from backup** button in the Sync dialog
 - [ ] **Cancel button** for Auto-categorize and Check links while they run
 - [ ] **Remember the Ollama CPU fallback** between runs (it's re-detected each session now)
 - [ ] **Installer**: a packaged `.exe` with electron-builder so Node.js isn't needed
@@ -12,7 +14,7 @@
 
 - [ ] Right-click menu on categories: rename, merge into another, delete all
 - [ ] Drag a bookmark onto a category in the sidebar
-- [ ] Sync back: write a cleaned-up bookmark folder into a browser (opt-in, with backup)
+- [ ] Sync back categories: write the library's categories as folders into a browser (opt-in, with backup)
 - [ ] Watch browsers for new bookmarks and import automatically
 - [ ] Page snapshots and full-text search of page content
 - [ ] "Read later" queue and reminders for bookmarks you never opened
@@ -27,3 +29,5 @@
 - Ollama on older NVIDIA cards (e.g. GTX 900 series) crashes on the GPU. The app falls back to CPU, which is slow.
 - Safari and Chromium-based browsers in unusual install locations aren't auto-detected. Use the `bookmarks.html` import.
 - Only tested on Windows 10.
+- Sync to browsers: with Chrome or Edge sync turned on, the sync server may restore deleted bookmarks.
+- Sync to browsers deletes by URL, so a URL saved in several folders of the same browser is removed from all of them.

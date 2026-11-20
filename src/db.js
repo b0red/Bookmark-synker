@@ -162,6 +162,10 @@ class Library {
     this.run('UPDATE bookmarks SET status = ?, status_code = ?, checked_at = ? WHERE id = ?', [status, code ?? null, Date.now(), id]);
   }
 
+  removedNorms() {
+    return this.all('SELECT norm FROM removed').map(r => r.norm);
+  }
+
   remove(ids) {
     this.run('BEGIN');
     const now = Date.now();
