@@ -1,0 +1,10 @@
+node_modules/
+dist/
+out/
+*.log
+*.sqlite
+*.png
+!docs/*.png
+.env
+anthropic-key.bin
+settings.json

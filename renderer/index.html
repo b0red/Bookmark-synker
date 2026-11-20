@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Bookmark Library</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="brand">Bookmark Library</div>
+    <div class="search">
+      <input id="search" type="search" placeholder="Search…  (try tag:python  cat:cooking  site:github.com  in:firefox)" autocomplete="off">
+    </div>
+    <div class="actions">
+      <button id="btn-import" class="primary">Import</button>
+      <button id="btn-categorize" title="Ask Claude to categorize the uncategorized bookmarks in this view">Auto-categorize</button>
+      <button id="btn-check" title="Check every bookmark in this view for dead links">Check links</button>
+      <button id="btn-random" title="Show a random bookmark from this view">Rediscover</button>
+      <button id="btn-export" title="Export this view as a bookmarks.html file any browser can import">Export</button>
+      <button id="btn-settings" class="icon" title="Settings">⚙</button>
+    </div>
+  </header>
+  <div id="progress" class="progress hidden"><div class="bar"></div><span class="label"></span></div>
+
+  <main class="layout">
+    <nav id="sidebar" class="sidebar"></nav>
+    <section class="content">
+      <div class="listhead"><span id="view-title"></span><span id="view-count" class="muted"></span>
+        <select id="sort">
+          <option value="added">Newest first</option>
+          <option value="added-asc">Oldest first</option>
+          <option value="title">Title A–Z</option>
+          <option value="domain">Site</option>
+          <option value="used">Recently opened</option>
+        </select>
+      </div>
+      <ul id="list" class="list"></ul>
+      <div id="empty" class="empty hidden">
+        <h2>Your library is empty</h2>
+        <p>Click <b>Import</b> to read bookmarks straight from Chrome, Edge, Firefox and other browsers on this PC.</p>
+      </div>
+    </section>
+    <aside id="detail" class="detail hidden"></aside>
+  </main>
+
+  <dialog id="dlg-import">
+    <h2>Import bookmarks</h2>
+    <p class="muted">Found on this PC. Duplicates across browsers are merged automatically, and importing again only adds what's new.</p>
+    <div id="import-sources" class="sources"></div>
+    <div id="import-result" class="result"></div>
+    <div class="row">
+      <button id="import-html">Import a bookmarks.html file…</button>
+      <span class="spacer"></span>
+      <button id="import-close">Close</button>
+      <button id="import-go" class="primary">Import selected</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-settings">
+    <h2>Settings</h2>
+    <label>Auto-categorize with</label>
+    <div class="sources">
+      <label><input type="radio" name="categorizer" value="rules">
+        <div><div>Built-in rules</div><div class="p">Offline and instant. Uses known sites, keywords and your own folder names.</div></div></label>
+      <label><input type="radio" name="categorizer" value="ollama">
+        <div><div>Local AI (Ollama)</div><div class="p">Smarter, free, runs on this PC. Nothing leaves your computer.</div></div></label>
+      <label><input type="radio" name="categorizer" value="claude">
+        <div><div>Claude (Anthropic API)</div><div class="p">Best results. Needs an API key with credit; sends title, URL and folder name.</div></div></label>
+    </div>
+
+    <div id="opt-ollama" class="hidden">
+      <label>Ollama model</label>
+      <input id="ollama-model" placeholder="qwen2.5:3b">
+      <p id="ollama-status" class="muted small"></p>
+    </div>
+
+    <div id="opt-claude" class="hidden">
+      <label>Anthropic API key</label>
+      <input id="key-input" type="password" placeholder="sk-ant-…" autocomplete="off">
+      <p id="key-status" class="muted small"></p>
+      <div class="row" style="margin-top:6px"><button id="key-clear">Remove key</button><button id="key-save">Save key</button></div>
+      <p class="muted small">The key is encrypted with your Windows account and stored only on this PC.</p>
+    </div>
+
+    <div class="row">
+      <span class="spacer"></span>
+      <button id="settings-close" class="primary">Done</button>
+    </div>
+  </dialog>
+
+  <div id="ctxmenu" class="ctxmenu hidden"></div>
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>

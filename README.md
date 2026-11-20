@@ -1,0 +1,66 @@
+# Bookmark Library
+
+A Windows desktop app that reads the bookmarks from every browser on your PC (Chrome, Edge, Brave, Vivaldi, Opera, Firefox), merges the duplicates, and gives you one searchable, categorized library. You can sort it with built-in rules, a local AI (Ollama), or Claude, check which links are dead, clean out what you no longer need, and export the result back to any browser.
+
+Your browsers' own bookmarks are only ever **read**, never changed.
+
+## Features
+
+| | |
+|---|---|
+| **Import** | Finds every browser profile on the PC automatically. You can also import any exported `bookmarks.html`. Re-importing only adds what's new. |
+| **Merge duplicates** | URLs are cleaned up (tracking parameters, `www.`, trailing slashes), so the same page saved in three browsers becomes one entry that remembers every place it came from. |
+| **Auto-categorize** | Assigns a category and tags. Choose the engine in ⚙ Settings: **Built-in rules** (offline, instant), **Local AI** with Ollama (free, private), or **Claude** (best results, needs an API key). |
+| **Smart views** | Favorites, uncategorized, no visit history, not opened in a year, saved in several browsers, dead links, links with problems. |
+| **Clean up** | Right-click **Not opened in a year**, **Dead links** or **Links with problems** → *Delete all*. Deleted links stay deleted on future imports. |
+| **Search** | Free text, or filters: `tag:python`, `cat:cooking`, `site:github.com`, `in:firefox`. <kbd>Ctrl</kbd>+<kbd>K</kbd> focuses search, and <kbd>Enter</kbd> opens the top hit. |
+| **Check links** | Finds dead pages (404, domain gone) and offers the Wayback Machine copy. |
+| **Rediscover** | Opens a random bookmark from the current view. |
+| **Export** | Saves the current view as `bookmarks.html`, grouped by category, which any browser can import. |
+
+## Quick start
+
+You need [Node.js](https://nodejs.org) 20 or newer.
+
+```powershell
+git clone <this repo>
+cd bookmark-library
+npm install
+npm start
+```
+
+Click **Import**, tick the browsers, then **Import selected**. Full instructions, including the Ollama and Claude setup and troubleshooting, are in **[docs/INSTALL.md](docs/INSTALL.md)**.
+
+## Where your data lives
+
+Everything is stored locally in `%APPDATA%\Bookmark Library\`:
+
+| File | Contents |
+|---|---|
+| `library.sqlite` | Your library (bookmarks, categories, tags, notes, deleted-link list) |
+| `settings.json` | Which categorizer to use, Ollama model |
+| `anthropic-key.bin` | Your Claude API key, encrypted with your Windows account (only if you saved one) |
+
+To back up your library, copy `library.sqlite`. To start over, delete it.
+
+## Privacy
+
+- **Built-in rules** and **Ollama**: nothing leaves your PC.
+- **Claude**: the title, URL and folder name of the bookmarks being categorized are sent to Anthropic's API.
+- **Check links**: the app requests each URL, the same as visiting it. Favicons are loaded from the sites themselves.
+
+## Documentation
+
+- [docs/INSTALL.md](docs/INSTALL.md): installation, setup and troubleshooting
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the code is organized
+- [TODO.md](TODO.md): planned features and known issues
+- [CHANGELOG.md](CHANGELOG.md): what changed
+
+## Development
+
+```powershell
+npm test       # imports your browsers into a temporary library and checks merge, re-import, edits and deletes
+npm run smoke  # prints bookmark counts per browser profile
+```
+
+Built with Electron and sql.js (SQLite compiled to WebAssembly, so no native build tools are needed).
