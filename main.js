@@ -12,8 +12,14 @@ const { startBridge, newToken } = require('./src/bridge');
 const { buildFirefox } = require('./src/extbuild');
 const { pickKeeper } = require('./src/duplicates');
 const { createAutoImporter } = require('./src/autoimport');
+const trayMod = require('./src/tray');
 
 let win, lib;
+let tray = null, quitting = false, hotkeyStatus = { ok: true, active: false };
+const ICON = path.join(__dirname, 'extension', 'icon48.png');
+const startHidden = process.argv.includes('--hidden');
+// Tests and screenshots never touch the tray, the global shortcut or Windows startup.
+const DESKTOP_HOOKS = process.env.BMLIB_DESKTOP === '1' || (!process.env.BMLIB_SNAPSHOT && !process.env.BMLIB_NO_DESKTOP);
 const dataDir = () => app.getPath('userData');
 const keyFile = () => path.join(dataDir(), 'anthropic-key.bin');
 
@@ -29,6 +35,8 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#16181d',
     title: 'Bookmark syncer',
+    icon: ICON,
+    show: !(startHidden && DESKTOP_HOOKS),
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
@@ -36,6 +44,36 @@ function createWindow() {
   // Links inside the app open in the user's default browser, never inside the app window.
   win.webContents.setWindowOpenHandler(({ url }) => { openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file:')) { e.preventDefault(); openExternal(url); } });
+  // Closing the window keeps the app in the tray (if that's on), so the shortcut keeps working.
+  win.on('close', (e) => {
+    if (quitting || !tray || !loadSettings().closeToTray) return;
+    e.preventDefault();
+    win.hide();
+    if (!loadSettings().trayHintShown) {
+      saveSettings({ trayHintShown: true });
+      tray.tray.displayBalloon({ iconType: 'info', title: 'Bookmark syncer is still running',
+        content: `It's in the tray. ${hotkeyStatus.active ? `Press ${hotkeyStatus.accelerator} to search your bookmarks. ` : ''}Right-click the icon to quit.` });
+    }
+  });
+}
+
+function showWindow(focusSearch = false) {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+  if (focusSearch) send('focus-search');
+}
+
+function quitApp() {
+  quitting = true;
+  app.quit();
+}
+
+function applyDesktop(s) {
+  if (!DESKTOP_HOOKS) return;
+  hotkeyStatus = trayMod.applyHotkey({ enabled: s.hotkeyEnabled, accelerator: s.hotkey }, () => showWindow(true));
+  if (tray) tray.setHotkeyLabel(hotkeyStatus.active ? hotkeyStatus.accelerator : null);
 }
 
 function openExternal(url) {
@@ -57,7 +95,8 @@ async function loadKey() {
 // ---------- settings ----------
 
 const settingsFile = () => path.join(dataDir(), 'settings.json');
-const DEFAULT_SETTINGS = { categorizer: 'rules', ollamaModel: 'qwen2.5:3b', importOnStart: true, watchBrowsers: true, readLaterNudge: true };
+const DEFAULT_SETTINGS = { categorizer: 'rules', ollamaModel: 'qwen2.5:3b', importOnStart: true, watchBrowsers: true, readLaterNudge: true,
+  hotkeyEnabled: true, hotkey: trayMod.DEFAULT_HOTKEY, closeToTray: true, startWithWindows: false };
 
 function loadSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; } catch { return { ...DEFAULT_SETTINGS }; }
@@ -156,13 +195,15 @@ function saveSettings(patch) {
 
 ipcMain.handle('settings:get', () => {
   const { bridgeToken, ...rest } = loadSettings(); // the pairing code is only shown in the extension setup dialog
-  return rest;
+  return { ...rest, hotkeyStatus };
 });
 ipcMain.handle('settings:save', (_e, patch) => {
   const { bridgeToken, ...safe } = patch || {};
   const { bridgeToken: _t, ...rest } = saveSettings(safe);
   if ('watchBrowsers' in safe && autoImport) { if (rest.watchBrowsers) autoImport.start(); else autoImport.stop(); }
-  return rest;
+  if ('hotkey' in safe || 'hotkeyEnabled' in safe) applyDesktop(rest);
+  if ('startWithWindows' in safe && DESKTOP_HOOKS) trayMod.setStartWithWindows(rest.startWithWindows, __dirname);
+  return { ...rest, hotkeyStatus };
 });
 
 // ---------- automatic import ----------
@@ -312,6 +353,12 @@ function toNetscapeHtml(items, groupBy) {
 // Dev hooks: BMLIB_DATA points the app at a separate data folder; BMLIB_SNAPSHOT saves a screenshot and quits.
 if (process.env.BMLIB_DATA) app.setPath('userData', process.env.BMLIB_DATA);
 
+// One copy of the app at a time: opening it again shows the running one.
+if (!app.requestSingleInstanceLock()) app.quit();
+else app.on('second-instance', () => showWindow());
+app.on('before-quit', () => { quitting = true; });
+app.on('will-quit', () => { if (DESKTOP_HOOKS) require('electron').globalShortcut.unregisterAll(); });
+
 // The app was called "Bookmark Library" before 0.4. Copy its data once to the new data folder,
 // so the library, settings and saved API key carry over. The old folder is left as a backup.
 function migrateOldData() {
@@ -330,6 +377,11 @@ app.whenReady().then(async () => {
   migrateOldData();
   lib = await Library.open(path.join(dataDir(), 'library.sqlite'));
   createWindow();
+  if (DESKTOP_HOOKS) {
+    const s = loadSettings();
+    tray = trayMod.createTray({ icon: ICON, onOpen: () => showWindow(), onSearch: () => showWindow(true), onQuit: quitApp });
+    applyDesktop(s);
+  }
   win.webContents.once('did-finish-load', () => setTimeout(setupAutoImport, 1500));
   if (!process.env.BMLIB_NO_BRIDGE) {
     bridge = startBridge({

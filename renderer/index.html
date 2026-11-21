@@ -253,6 +253,13 @@
     <label class="check"><input type="checkbox" id="set-watch"> Keep checking while the app is open (about once a minute)</label>
     <p class="muted small">Only browser profiles you have imported before. Bookmarks you deleted here stay deleted.</p>
 
+    <label>Shortcut and tray</label>
+    <label class="check"><input type="checkbox" id="set-hotkey-on"> Search your bookmarks from anywhere with
+      <input id="set-hotkey" class="hotkey" readonly title="Click, then press the keys you want"></label>
+    <p id="hotkey-status" class="muted small"></p>
+    <label class="check"><input type="checkbox" id="set-tray"> Closing the window keeps the app running in the tray</label>
+    <label class="check"><input type="checkbox" id="set-login"> Start with Windows (in the tray)</label>
+
     <label>Read later</label>
     <label class="check"><input type="checkbox" id="set-nudge"> Remind me about unread bookmarks (at most once a week)</label>
 

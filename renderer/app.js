@@ -619,6 +619,11 @@ async function openSettings() {
   $('#set-import-start').checked = !!s.importOnStart;
   $('#set-watch').checked = !!s.watchBrowsers;
   $('#set-nudge').checked = s.readLaterNudge !== false;
+  $('#set-hotkey-on').checked = !!s.hotkeyEnabled;
+  $('#set-hotkey').value = s.hotkey || '';
+  $('#set-tray').checked = !!s.closeToTray;
+  $('#set-login').checked = !!s.startWithWindows;
+  showHotkeyStatus(s.hotkeyStatus);
   showCategorizerOptions(s.categorizer);
   $('#dlg-settings').showModal();
 }
@@ -635,6 +640,55 @@ $('#ollama-model').addEventListener('change', async (e) => {
 });
 $('#ollama-cpu').addEventListener('change', (e) => window.api.saveSettings({ ollamaCpuOnly: e.target.checked }));
 $('#set-import-start').addEventListener('change', (e) => window.api.saveSettings({ importOnStart: e.target.checked }));
+// ---------- global shortcut ----------
+
+function showHotkeyStatus(st) {
+  const el = $('#hotkey-status');
+  if (!st) { el.textContent = ''; return; }
+  el.classList.toggle('err', !st.ok);
+  el.textContent = !st.ok ? st.error
+    : st.active ? 'Opens the app with the search box ready. Click the keys above to change them.'
+    : 'Off.';
+}
+
+// Turns a key press into an Electron shortcut like "Ctrl+Alt+B" (null while only modifiers are down).
+function acceleratorFromEvent(e) {
+  const code = e.code || '';
+  let key = null;
+  if (/^Key[A-Z]$/.test(code)) key = code.slice(3);
+  else if (/^Digit[0-9]$/.test(code)) key = code.slice(5);
+  else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(code)) key = code;
+  else key = { Space: 'Space', Backquote: '`', Minus: '-', Equal: '=', Comma: ',', Period: '.', Slash: '/', Semicolon: ';',
+    BracketLeft: '[', BracketRight: ']', Backslash: '\\', Quote: "'", Home: 'Home', End: 'End', Insert: 'Insert',
+    PageUp: 'PageUp', PageDown: 'PageDown' }[code] || null;
+  if (!key) return null;
+  const mods = [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Super'].filter(Boolean);
+  // A plain letter would fire while typing anywhere, so it needs Ctrl, Alt or the Windows key (F-keys are fine alone).
+  if (!/^F\d+$/.test(key) && !mods.some(m => m !== 'Shift')) return null;
+  return [...mods, key].join('+');
+}
+
+$('#set-hotkey').addEventListener('keydown', async (e) => {
+  if (e.key === 'Tab') return;
+  e.preventDefault();
+  if (e.key === 'Escape') { e.target.blur(); return; }
+  const acc = acceleratorFromEvent(e);
+  if (!acc) return;
+  e.target.value = acc;
+  const s = await window.api.saveSettings({ hotkey: acc, hotkeyEnabled: true });
+  $('#set-hotkey-on').checked = true;
+  showHotkeyStatus(s.hotkeyStatus);
+});
+$('#set-hotkey-on').addEventListener('change', async (e) => showHotkeyStatus((await window.api.saveSettings({ hotkeyEnabled: e.target.checked })).hotkeyStatus));
+$('#set-tray').addEventListener('change', (e) => window.api.saveSettings({ closeToTray: e.target.checked }));
+$('#set-login').addEventListener('change', (e) => window.api.saveSettings({ startWithWindows: e.target.checked }));
+
+window.api.onFocusSearch(() => {
+  for (const d of document.querySelectorAll('dialog[open]')) d.close();
+  $('#search').focus();
+  $('#search').select();
+});
+
 $('#set-nudge').addEventListener('change', (e) => window.api.saveSettings({ readLaterNudge: e.target.checked }));
 $('#set-watch').addEventListener('change', (e) => window.api.saveSettings({ watchBrowsers: e.target.checked }));
 

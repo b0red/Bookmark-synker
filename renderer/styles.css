@@ -255,3 +255,7 @@ body.dragging-bookmarks .nav-item[data-value="favorites"] { outline: 1px dashed 
 /* Read later */
 .chip.later { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .chip.later.opened { opacity: .55; }
+
+/* Global shortcut field */
+input.hotkey { width: 11em; display: inline-block; margin: 0 0 0 4px; padding: 2px 6px; text-align: center; cursor: pointer; font-family: inherit; }
+input.hotkey:focus { outline: 2px solid var(--accent); }
