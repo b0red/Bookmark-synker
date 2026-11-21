@@ -67,7 +67,7 @@ function toast(msg, ms = 4000, action = null) {
 function matchesView(b) {
   const v = state.view;
   if (v.type === 'smart') return SMART.find(s => s.id === v.value).test(b);
-  if (v.type === 'category') return (b.category || '') === v.value;
+  if (v.type === 'category') return inCategory(b.category, v.value);
   if (v.type === 'source') return b.sources.some(s => s.source === v.value);
   if (v.type === 'tag') return b.tags.includes(v.value);
   return true;
@@ -120,6 +120,56 @@ function navItem(type, value, name, n) {
   return `<div class="nav-item${active}" data-type="${type}" data-value="${esc(value)}"><span class="name">${esc(name)}</span><span class="n">${n}</span></div>`;
 }
 
+// ---------- category tree ----------
+// Categories made from browser folders look like "Speed Dials / Desktop / Folder". The sidebar shows
+// them as a tree; a parent's view includes everything below it.
+
+const CAT_SEP = ' / ';
+const inCategory = (cat, path) => !!cat && (cat === path || cat.startsWith(path + CAT_SEP));
+const catLeaf = (cat) => cat.split(CAT_SEP).pop();
+
+const expanded = (() => {
+  let set;
+  try { set = new Set(JSON.parse(localStorage.getItem('expandedCats') || '[]')); } catch { set = new Set(); }
+  return {
+    has: (p) => set.has(p),
+    toggle(p) {
+      if (set.has(p)) set.delete(p); else set.add(p);
+      try { localStorage.setItem('expandedCats', JSON.stringify([...set])); } catch {}
+    },
+  };
+})();
+
+function categoryTree(items) {
+  const root = { children: new Map() };
+  for (const b of items) {
+    if (!b.category) continue;
+    let node = root, path = '';
+    for (const part of b.category.split(CAT_SEP)) {
+      path = path ? path + CAT_SEP + part : part;
+      if (!node.children.has(part)) node.children.set(part, { name: part, path, own: 0, total: 0, children: new Map() });
+      node = node.children.get(part);
+      node.total++;
+    }
+    node.own++;
+  }
+  const sorted = (n) => [...n.children.values()].sort((a, b) => a.name.localeCompare(b.name)).map(c => ({ ...c, children: sorted(c) }));
+  return sorted(root);
+}
+
+function renderCatNodes(nodes, depth) {
+  let html = '';
+  for (const n of nodes) {
+    const kids = n.children.length > 0;
+    const open = kids && (expanded.has(n.path) || (state.view.type === 'category' && state.view.value.startsWith(n.path + CAT_SEP)));
+    const active = state.view.type === 'category' && state.view.value === n.path ? ' active' : '';
+    const caret = kids ? `<span class="caret" data-toggle="${esc(n.path)}" title="${open ? 'Collapse' : 'Expand'}">${open ? '▾' : '▸'}</span>` : '<span class="caret"></span>';
+    html += `<div class="nav-item cat-node${active}" data-type="category" data-value="${esc(n.path)}" style="--depth:${depth}" title="${esc(n.path)}">${caret}<span class="name">${esc(n.name)}</span><span class="n">${n.total}</span></div>`;
+    if (open) html += renderCatNodes(n.children, depth + 1);
+  }
+  return html;
+}
+
 function renderSidebar() {
   const items = state.items;
   let html = '<h3>Library</h3>';
@@ -127,10 +177,10 @@ function renderSidebar() {
     const n = s.id === 'deleted' ? state.deleted.length : items.filter(s.test).length;
     if (n || ['all', 'favorites', 'uncategorized'].includes(s.id)) html += navItem('smart', s.id, s.name, n);
   }
-  const cats = countBy(items, b => b.category).sort((a, b) => a[0].localeCompare(b[0]));
-  if (cats.length) {
+  const tree = categoryTree(items);
+  if (tree.length) {
     html += '<h3>Categories</h3>';
-    for (const [c, n] of cats) html += navItem('category', c, c, n);
+    html += renderCatNodes(tree, 0);
   }
   const srcs = countBy(items, b => [...new Set(b.sources.map(s => s.source))]).sort((a, b) => b[1] - a[1]);
   if (srcs.length) {
@@ -267,7 +317,7 @@ function renderAll() { renderSidebar(); renderList(); renderDetail(); }
 async function reload() {
   [state.items, state.deleted] = await Promise.all([window.api.list(), window.api.listDeleted()]);
   if (isDeletedView() && !state.deleted.length) state.view = { type: 'smart', value: 'all' };
-  if (state.view.type === 'category' && !state.items.some(b => b.category === state.view.value)) state.view = { type: 'smart', value: 'all' };
+  if (state.view.type === 'category' && !state.items.some(b => inCategory(b.category, state.view.value))) state.view = { type: 'smart', value: 'all' };
   renderAll();
 }
 
@@ -603,6 +653,8 @@ $('#btn-export').onclick = async () => {
 // ---------- list / sidebar / search events ----------
 
 $('#sidebar').addEventListener('click', (e) => {
+  const toggle = e.target.closest('[data-toggle]');
+  if (toggle) { expanded.toggle(toggle.dataset.toggle); renderSidebar(); return; }
   const el = e.target.closest('[data-type]');
   if (!el) return;
   state.view = { type: el.dataset.type, value: el.dataset.value };
@@ -780,10 +832,11 @@ $('#cat-form').addEventListener('submit', () => {
   const dlg = $('#dlg-cat');
   const from = dlg.oldName, to = dlg.target;
   if (!to || to === from) return;
-  const ids = state.items.filter(b => b.category === from).map(b => b.id);
+  // Sub-categories move along: "A / B" renamed to "X" turns "A / B / C" into "X / C".
+  const changes = state.items.filter(b => inCategory(b.category, from)).map(b => ({ id: b.id, category: to + b.category.slice(from.length) }));
   const merging = state.items.some(b => b.category === to);
   leaveCategoryView(from, to);
-  applyToIds(ids, { category: to }, merging ? `Merged “${from}” into “${to}”.` : `Renamed “${from}” to “${to}”.`);
+  applyCategoryChanges(changes, merging ? `Merged “${from}” into “${to}”.` : `Renamed “${from}” to “${to}”.`);
 });
 
 // ---------- info panel ----------
@@ -807,6 +860,18 @@ const plural = (n) => `${n} bookmark${n === 1 ? '' : 's'}`;
 // Applies one change to every selected bookmark, with Undo that puts each one's old values back.
 async function bulkApply(patch, message) {
   return applyToIds([...state.checked], patch, message);
+}
+
+// Gives each bookmark its own new category (changes: [{ id, category }]), with Undo.
+async function applyCategoryChanges(changes, message) {
+  if (!changes.length) return;
+  const byId = new Map(state.items.map(b => [b.id, b]));
+  const snap = (b, category) => ({ id: b.id, category, favorite: b.favorite, tags: [...b.tags] });
+  const before = changes.map(c => byId.get(c.id)).filter(Boolean).map(b => snap(b, b.category));
+  const after = changes.filter(c => byId.has(c.id)).map(c => snap(byId.get(c.id), c.category || null));
+  await window.api.setFields(after);
+  await reload();
+  toast(message, 8000, { label: 'Undo', fn: async () => { await window.api.setFields(before); await reload(); toast('Undone.'); } });
 }
 
 async function applyToIds(ids, patch, message) {
@@ -879,12 +944,31 @@ $('#sidebar').addEventListener('contextmenu', (e) => {
   if (catEl) {
     e.preventDefault();
     const name = catEl.dataset.value;
-    const members = state.items.filter(b => b.category === name);
+    const members = state.items.filter(b => inCategory(b.category, name));
+    const below = members.filter(b => b.category !== name);
+    const hasSub = below.length > 0;
     menu.innerHTML = `<button data-act="rename">Rename or merge…</button>
+      ${hasSub ? `<button data-act="leaves" title="For example “Speed Dials / Desktop / Recipes” becomes “Recipes”">Keep only the sub-category names (${below.length})</button>
+      <button data-act="collapse">Merge sub-categories into “${esc(catLeaf(name))}” (${below.length})</button>` : ''}
+      ${name.includes(CAT_SEP) ? `<button data-act="leaf-self" title="Drops the parent part of the name">Rename to just “${esc(catLeaf(name))}”${hasSub ? ' (with its sub-categories)' : ''}</button>` : ''}
       <button data-act="uncat">Remove category (${members.length} become uncategorized)</button>
       <button class="danger" data-act="delete">Delete ${members.length === 1 ? "the 1 bookmark" : `all ${members.length} bookmarks`}</button>`;
     place();
     menu.querySelector('[data-act="rename"]').onclick = () => { hideMenu(); openCategoryRename(name); };
+    const act = (sel, fn) => { const b = menu.querySelector(sel); if (b) b.onclick = () => { hideMenu(); fn(); }; };
+    act('[data-act="leaves"]', () => {
+      leaveCategoryView(name, null);
+      applyCategoryChanges(below.map(b => ({ id: b.id, category: catLeaf(b.category) })),
+        `Kept only the sub-category names for ${plural(below.length)}.`);
+    });
+    act('[data-act="collapse"]', () => {
+      applyCategoryChanges(below.map(b => ({ id: b.id, category: name })), `Merged the sub-categories into “${name}”.`);
+    });
+    act('[data-act="leaf-self"]', () => {
+      const to = catLeaf(name);
+      leaveCategoryView(name, to);
+      applyCategoryChanges(members.map(b => ({ id: b.id, category: to + b.category.slice(name.length) })), `Renamed “${name}” to “${to}”.`);
+    });
     menu.querySelector('[data-act="uncat"]').onclick = () => {
       hideMenu();
       leaveCategoryView(name, null);

@@ -227,3 +227,9 @@ label.check { display: flex; align-items: center; gap: 6px; margin-top: 10px; cu
 .resizer:hover::after, .resizer:focus-visible::after, .resizer.dragging::after { background: var(--accent); }
 .resizer:focus-visible { outline: none; }
 body.resizing { cursor: col-resize; user-select: none; }
+
+/* category tree */
+.nav-item.cat-node { padding-left: calc(4px + var(--depth, 0) * 14px); gap: 2px; }
+.nav-item.cat-node .name { flex: 1; min-width: 0; }
+.caret { flex: 0 0 16px; width: 16px; text-align: center; color: var(--muted); font-size: 13px; cursor: pointer; border-radius: 3px; }
+.caret:hover { background: var(--hover); color: var(--text); }
