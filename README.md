@@ -1,5 +1,7 @@
 # Bookmark syncer
 
+*A small vibecoded app for syncing bookmarks between multiple browsers.*
+
 A Windows desktop app that reads the bookmarks from every browser on your PC (Chrome, Edge, Brave, Vivaldi, Opera, Firefox), merges the duplicates, and gives you one searchable, categorized library. You can sort it with built-in rules, a local AI (Ollama), or Claude, check which links are dead, clean out what you no longer need, and export the result back to any browser.
 
 Your browsers' own bookmarks are only **read**, except when you click **Sync to browsers**, which removes the ones you deleted (after showing a preview and making a backup).
@@ -27,7 +29,7 @@ Your browsers' own bookmarks are only **read**, except when you click **Sync to 
 You need [Node.js](https://nodejs.org) 20 or newer.
 
 ```powershell
-git clone <this repo>
+git clone https://github.com/b0red/bookmark-synker.git bookmark-syncer
 cd bookmark-syncer
 npm install
 npm start
@@ -68,3 +70,7 @@ npm run smoke  # prints bookmark counts per browser profile
 ```
 
 Built with Electron and sql.js (SQLite compiled to WebAssembly, so no native build tools are needed).
+
+## License
+
+[GPL-3.0](LICENSE)

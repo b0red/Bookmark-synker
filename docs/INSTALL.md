@@ -15,7 +15,7 @@ node --version
 **With Git:**
 
 ```powershell
-git clone <repo URL>
+git clone https://github.com/b0red/bookmark-synker.git bookmark-syncer
 cd bookmark-syncer
 ```
 

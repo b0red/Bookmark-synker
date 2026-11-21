@@ -20,7 +20,6 @@
 - [ ] Duplicate-ish detection (same article on different URLs, or http vs https mirrors)
 - [ ] Global hotkey for quick search from anywhere
 - [ ] Demo screenshot in the README (made from fake data, not a real library)
-- [ ] Choose a license (currently none / all rights reserved)
 
 ## Known issues
 
