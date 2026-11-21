@@ -1045,7 +1045,7 @@ $('#btn-info').onclick = async () => {
   $('#dlg-info').scrollTop = 0; // focus lands on Close at the bottom; start at the top
 };
 $('#info-close').onclick = () => $('#dlg-info').close();
-// The full guide lives in the GitHub README (the repo is private, so it needs your GitHub sign-in).
+// The full guide lives in the GitHub README.
 const README_URL = 'https://github.com/b0red/Bookmark-synker#readme';
 
 // Donation links in the ? panel. The section stays hidden while this list is empty.
@@ -1066,6 +1066,8 @@ const SUPPORT_LINKS = [
 })();
 const FIREFOX_SIGN_URL = 'https://github.com/b0red/Bookmark-synker/blob/main/docs/INSTALL.md#firefox-keep-it-installed';
 $('#info-more').onclick = (e) => { e.preventDefault(); window.api.open(README_URL); };
+const PRIVACY_URL = 'https://github.com/b0red/Bookmark-synker/blob/main/PRIVACY.md';
+$('#info-privacy').onclick = (e) => { e.preventDefault(); window.api.open(PRIVACY_URL); };
 
 // ---------- bulk actions on the selection ----------
 

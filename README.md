@@ -70,6 +70,8 @@ The app backs up your library once a day. To go back to a backup, use ⚙ Settin
 
 ## Privacy
 
+No account, no telemetry, no analytics: the developer receives nothing. Full details: [PRIVACY.md](PRIVACY.md).
+
 - **Built-in rules** and **Ollama**: nothing leaves your PC.
 - **Claude**: the title, URL and folder name of the bookmarks being categorized are sent to Anthropic's API.
 - **Check links**: the app requests each URL, the same as visiting it. Favicons are loaded from the sites themselves.
@@ -81,6 +83,7 @@ The app backs up your library once a day. To go back to a backup, use ⚙ Settin
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the code is organized
 - [TODO.md](TODO.md): planned features and known issues
 - [CHANGELOG.md](CHANGELOG.md): what changed
+- [PRIVACY.md](PRIVACY.md): privacy policy
 
 ## Development
 
