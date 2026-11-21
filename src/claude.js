@@ -43,7 +43,7 @@ function makeClient(apiKey) {
   return apiKey ? new Anthropic({ apiKey }) : new Anthropic();
 }
 
-async function categorizeBatch(client, batch, knownCategories) {
+async function categorizeBatch(client, batch, knownCategories, signal) {
   const lines = batch.map(b => JSON.stringify({ id: b.id, title: b.title, url: b.url, folder: b.folder }));
   const prompt =
     (knownCategories.length ? `Categories already in use: ${knownCategories.join(', ')}\n\n` : '') +
@@ -57,7 +57,7 @@ async function categorizeBatch(client, batch, knownCategories) {
     system: SYSTEM,
     output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
     messages: [{ role: 'user', content: prompt }],
-  });
+  }, { signal });
 
   if (response.stop_reason === 'refusal') throw new Error('Claude declined this batch.');
   if (response.stop_reason === 'max_tokens') throw new Error('Response was cut off (batch too large).');
@@ -80,13 +80,14 @@ function describeError(e) {
 }
 
 // bookmarks: [{id,title,url,folder}]; onBatch(results, done, total) is called after each batch.
-async function categorize({ apiKey, bookmarks, knownCategories, onBatch }) {
+async function categorize({ apiKey, bookmarks, knownCategories, onBatch, signal }) {
   const client = makeClient(apiKey);
   const categories = new Set(knownCategories);
   let done = 0;
   for (let i = 0; i < bookmarks.length; i += BATCH_SIZE) {
+    if (signal?.aborted) return;
     const batch = bookmarks.slice(i, i + BATCH_SIZE);
-    const results = await categorizeBatch(client, batch, [...categories].sort());
+    const results = await categorizeBatch(client, batch, [...categories].sort(), signal);
     results.forEach(r => categories.add(r.category));
     done += batch.length;
     onBatch(results, done, bookmarks.length);

@@ -63,9 +63,10 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
 .search input { width: 100%; padding: 8px 12px; }
 .actions { display: flex; gap: 6px; }
 
-.progress { position: relative; height: 22px; background: var(--panel-2); border-bottom: 1px solid var(--border); }
+.progress { position: relative; display: flex; align-items: center; height: 26px; background: var(--panel-2); border-bottom: 1px solid var(--border); }
 .progress .bar { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--selected); transition: width .2s; }
-.progress .label { position: relative; padding: 0 16px; font-size: 12px; line-height: 22px; color: var(--muted); }
+.progress .label { position: relative; flex: 1; padding: 0 16px; font-size: 12px; line-height: 26px; color: var(--muted); }
+.progress button { position: relative; margin-right: 10px; padding: 1px 10px; font-size: 12px; }
 
 .layout { flex: 1; display: flex; min-height: 0; }
 

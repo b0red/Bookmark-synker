@@ -127,10 +127,15 @@ ipcMain.handle('settings:save', (_e, patch) => {
 });
 ipcMain.handle('ollama:status', (_e, model) => ollama.status(model || loadSettings().ollamaModel));
 
-let categorizing = false;
+// Long-running jobs (categorize, link check) can be cancelled from the progress bar.
+// Each running job has an AbortController; work finished before the cancel is kept.
+const jobs = { categorize: null, links: null };
+ipcMain.handle('job:cancel', (_e, kind) => { jobs[kind]?.abort(); return !!jobs[kind]; });
+
 ipcMain.handle('claude:categorize', async (_e, { ids }) => {
-  if (categorizing) return { error: 'Already running.' };
-  categorizing = true;
+  if (jobs.categorize) return { error: 'Already running.' };
+  const ctrl = (jobs.categorize = new AbortController());
+  let doneSoFar = 0;
   try {
     const wanted = new Set(ids);
     const all = lib.list();
@@ -138,28 +143,32 @@ ipcMain.handle('claude:categorize', async (_e, { ids }) => {
     const knownCategories = [...new Set(all.map(b => b.category).filter(Boolean))];
     const settings = loadSettings();
     const onBatch = (results, done, total) => {
+      if (ctrl.signal.aborted) return;
       lib.applyCategories(results);
+      doneSoFar = done;
       send('progress', { kind: 'categorize', done, total });
     };
+    const signal = ctrl.signal;
     if (settings.categorizer === 'claude') {
-      await claude.categorize({ apiKey: await loadKey(), bookmarks, knownCategories, onBatch });
+      await claude.categorize({ apiKey: await loadKey(), bookmarks, knownCategories, onBatch, signal });
     } else if (settings.categorizer === 'ollama') {
-      await ollama.categorize({ model: settings.ollamaModel, bookmarks, knownCategories, onBatch });
+      await ollama.categorize({ model: settings.ollamaModel, bookmarks, knownCategories, onBatch, signal });
     } else {
       await rules.categorize({ bookmarks, onBatch });
     }
+    if (signal.aborted) return { cancelled: true, count: doneSoFar, total: bookmarks.length };
     return { ok: true, count: bookmarks.length };
   } catch (e) {
+    if (ctrl.signal.aborted) return { cancelled: true, count: doneSoFar };
     return { error: claude.describeError(e) };
   } finally {
-    categorizing = false;
+    jobs.categorize = null;
   }
 });
 
-let checking = false;
 ipcMain.handle('links:check', async (_e, { ids }) => {
-  if (checking) return { error: 'Already running.' };
-  checking = true;
+  if (jobs.links) return { error: 'Already running.' };
+  const ctrl = (jobs.links = new AbortController());
   try {
     const wanted = new Set(ids);
     const items = lib.list().filter(b => wanted.has(b.id));
@@ -168,11 +177,11 @@ ipcMain.handle('links:check', async (_e, { ids }) => {
       lib.setStatus(id, r.status, r.code);
       done++;
       if (done % 10 === 0 || done === items.length) { lib.save(); send('progress', { kind: 'links', done, total: items.length }); }
-    });
+    }, ctrl.signal);
     lib.save();
-    return { ok: true };
+    return ctrl.signal.aborted ? { cancelled: true, count: done, total: items.length } : { ok: true };
   } finally {
-    checking = false;
+    jobs.links = null;
   }
 });
 

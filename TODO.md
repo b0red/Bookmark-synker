@@ -2,16 +2,13 @@
 
 ## Next up
 
-- [ ] **Read more** link in the ? help panel (to a fuller guide or the GitHub README)
 - [ ] **Chrome/Edge sync**: find a way to delete that the sync server respects (e.g. a small browser extension using the bookmarks API)
 - [ ] **Restore from backup** button in the Sync dialog
-- [ ] **Cancel button** for Auto-categorize and Check links while they run
 - [ ] **Remember the Ollama CPU fallback** between runs (it's re-detected each session now)
 - [ ] **Installer**: a packaged `.exe` with electron-builder so Node.js isn't needed
 
 ## Ideas
 
-- [ ] Right-click menu on categories: rename, merge into another, delete all
 - [ ] Drag a bookmark onto a category in the sidebar
 - [ ] Sync back categories: write the library's categories as folders into a browser (opt-in, with backup)
 - [ ] Watch browsers for new bookmarks and import automatically

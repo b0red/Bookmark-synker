@@ -25,9 +25,10 @@ function looksLikeGpuCrash(status, text) {
   return status === 500 && /llama-server process has terminated|CUDA|cuda|0xc0000409|ggml|vulkan|rocm/i.test(text);
 }
 
-async function chat(model, messages) {
+async function chat(model, messages, signal) {
   return fetch(`${HOST}/api/chat`, {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model,
@@ -39,19 +40,19 @@ async function chat(model, messages) {
   });
 }
 
-async function categorizeBatch(model, batch, knownCategories) {
+async function categorizeBatch(model, batch, knownCategories, signal) {
   const lines = batch.map(b => JSON.stringify({ id: b.id, title: b.title, url: b.url, folder: b.folder }));
   const prompt =
     (knownCategories.length ? `Categories already in use: ${knownCategories.join(', ')}\n\n` : '') +
     `Bookmarks (one JSON object per line):\n${lines.join('\n')}`;
   const messages = [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }];
 
-  let res = await chat(model, messages);
+  let res = await chat(model, messages, signal);
   if (!res.ok && !cpuOnly) {
     const text = await res.clone().text().catch(() => '');
     if (looksLikeGpuCrash(res.status, text)) {
       cpuOnly = true;
-      res = await chat(model, messages);
+      res = await chat(model, messages, signal);
     }
   }
   if (!res.ok) {
@@ -68,15 +69,16 @@ async function categorizeBatch(model, batch, knownCategories) {
     .map(r => ({ id: r.id, category: r.category.trim().slice(0, 40), tags: (r.tags || []).map(String).slice(0, 4) }));
 }
 
-async function categorize({ model, bookmarks, knownCategories, onBatch }) {
+async function categorize({ model, bookmarks, knownCategories, onBatch, signal }) {
   const s = await status(model);
   if (!s.running) throw new Error('Ollama is not running. Install it from ollama.com, or start the Ollama app.');
   if (!s.hasModel) throw new Error(`Ollama doesn't have the model "${model}" yet. In a terminal, run: ollama pull ${model}`);
   const categories = new Set(knownCategories);
   let done = 0;
   for (let i = 0; i < bookmarks.length; i += BATCH_SIZE) {
+    if (signal?.aborted) return;
     const batch = bookmarks.slice(i, i + BATCH_SIZE);
-    const results = await categorizeBatch(model, batch, [...categories].sort());
+    const results = await categorizeBatch(model, batch, [...categories].sort(), signal);
     results.forEach(r => categories.add(r.category));
     done += batch.length;
     onBatch(results, done, bookmarks.length);

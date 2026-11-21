@@ -23,7 +23,7 @@
       <button id="btn-settings" class="icon" title="Settings">⚙</button>
     </div>
   </header>
-  <div id="progress" class="progress hidden"><div class="bar"></div><span class="label"></span></div>
+  <div id="progress" class="progress hidden"><div class="bar"></div><span class="label"></span><button id="progress-cancel" title="Stop. Everything finished so far is kept">Cancel</button></div>
 
   <main class="layout">
     <nav id="sidebar" class="sidebar"></nav>
@@ -91,8 +91,8 @@
     <h3>How it works</h3>
     <ol class="howto">
       <li><b>Import</b> reads Chrome, Edge, Brave, Vivaldi, Opera and Firefox on this PC, or a <code>bookmarks.html</code> file. The same page saved in several browsers becomes one entry.</li>
-      <li><b>Auto-categorize</b> sorts the bookmarks in the current view. Choose built-in rules, local AI (Ollama) or Claude under ⚙.</li>
-      <li><b>Check links</b> finds dead pages. <b>Rediscover</b> opens a random bookmark.</li>
+      <li><b>Auto-categorize</b> sorts the bookmarks in the current view. Choose built-in rules, local AI (Ollama) or Claude under ⚙. Right-click a category to rename it, merge it into another, or remove it.</li>
+      <li><b>Check links</b> finds dead pages. Long runs can be stopped with <b>Cancel</b> on the progress bar; finished work is kept. <b>Rediscover</b> opens a random bookmark.</li>
       <li><b>Clean up</b>: tick bookmarks to delete them or change many at once, or right-click <i>Dead links</i> / <i>Not opened in a year</i> → <i>Delete all</i>. <i>Recently deleted</i> can restore them.</li>
       <li><b>Sync to browsers</b> removes what you deleted from the browsers too (close them first; every file is backed up).</li>
       <li><b>Export</b> saves the current view as a <code>bookmarks.html</code> any browser can import.</li>
@@ -107,9 +107,25 @@
     <p class="muted small">Search filters: <code>tag:</code> <code>cat:</code> <code>site:</code> <code>in:</code> (source), e.g. <code>site:github.com tag:python</code></p>
 
     <div class="row">
+      <a href="#" id="info-more" title="Opens the full guide on GitHub in your browser">Read more on GitHub →</a>
       <span class="spacer"></span>
       <button id="info-close" class="primary">Close</button>
     </div>
+  </dialog>
+
+  <dialog id="dlg-cat">
+    <form method="dialog" id="cat-form">
+      <h2 id="cat-title"></h2>
+      <label for="cat-name">New name</label>
+      <input id="cat-name" list="cat-names" autocomplete="off" required>
+      <datalist id="cat-names"></datalist>
+      <p id="cat-hint" class="muted small">Type an existing category's name to merge into it.</p>
+      <div class="row">
+        <span class="spacer"></span>
+        <button type="button" id="cat-cancel">Cancel</button>
+        <button type="submit" id="cat-ok" class="primary">Rename</button>
+      </div>
+    </form>
   </dialog>
 
   <dialog id="dlg-bulk">

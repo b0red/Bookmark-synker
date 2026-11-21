@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0 (2026-11-21)
+
+- Right-click a category: **Rename or merge…** (typing an existing name merges, case-insensitive), **Remove category**, **Delete all**, each with Undo
+- **Cancel** button on the progress bar for Auto-categorize and Check links. In-flight Ollama, Claude and link requests are aborted right away and finished work is kept
+- **Read more on GitHub** link in the ? help panel
+- Link check results count only the links checked in that run
+
 ## 0.4.0 (2026-11-21)
 
 - Renamed to **Bookmark syncer**. Your library, settings and API key are copied automatically from the old `%APPDATA%\Bookmark Library` folder on first start (the old folder is kept as a backup)

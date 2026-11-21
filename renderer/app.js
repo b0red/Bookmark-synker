@@ -267,23 +267,41 @@ function renderAll() { renderSidebar(); renderList(); renderDetail(); }
 async function reload() {
   [state.items, state.deleted] = await Promise.all([window.api.list(), window.api.listDeleted()]);
   if (isDeletedView() && !state.deleted.length) state.view = { type: 'smart', value: 'all' };
+  if (state.view.type === 'category' && !state.items.some(b => b.category === state.view.value)) state.view = { type: 'smart', value: 'all' };
   renderAll();
 }
 
 // ---------- progress ----------
 
-function showProgress(label, done, total) {
+// `kind` ('categorize' | 'links') is the job the Cancel button stops.
+function showProgress(label, done, total, kind) {
   const p = $('#progress');
+  if (kind && p.dataset.kind !== kind) { p.dataset.kind = kind; $('#progress-cancel').disabled = false; $('#progress-cancel').textContent = 'Cancel'; }
+  if (p.dataset.stopping) return;
   p.classList.remove('hidden');
   p.querySelector('.bar').style.width = total ? `${(100 * done) / total}%` : '0';
   p.querySelector('.label').textContent = `${label} ${done} / ${total}`;
 }
-function hideProgress() { $('#progress').classList.add('hidden'); }
+function hideProgress() {
+  const p = $('#progress');
+  p.classList.add('hidden');
+  delete p.dataset.kind;
+  delete p.dataset.stopping;
+}
 
 window.api.onProgress(async (p) => {
-  showProgress(p.kind === 'categorize' ? 'Categorizing…' : 'Checking links…', p.done, p.total);
+  showProgress(p.kind === 'categorize' ? 'Categorizing…' : 'Checking links…', p.done, p.total, p.kind);
   await reload();
 });
+
+$('#progress-cancel').onclick = () => {
+  const p = $('#progress');
+  if (!p.dataset.kind) return;
+  p.dataset.stopping = '1';
+  $('#progress-cancel').disabled = true;
+  p.querySelector('.label').textContent = 'Stopping…';
+  window.api.cancelJob(p.dataset.kind);
+};
 
 // ---------- import dialog ----------
 
@@ -470,10 +488,12 @@ $('#btn-categorize').onclick = async () => {
     '\n\n(Change this under ⚙ Settings.)';
   if (!confirm(msg)) return;
   $('#btn-categorize').disabled = true;
-  showProgress(`Categorizing with ${engine}…`, 0, ids.length);
+  showProgress(`Categorizing with ${engine}…`, 0, ids.length, 'categorize');
   try {
     const r = await window.api.categorize(ids);
-    if (r.error) toast(r.error, 10000); else toast(`Categorized ${r.count} bookmarks.`);
+    if (r.cancelled) toast(`Stopped. ${r.count} of ${ids.length} bookmarks were categorized and kept.`, 7000);
+    else if (r.error) toast(r.error, 10000);
+    else toast(`Categorized ${r.count} bookmarks.`);
   } finally {
     $('#btn-categorize').disabled = false;
     hideProgress();
@@ -486,16 +506,21 @@ $('#btn-check').onclick = async () => {
   if (!ids.length) return;
   if (!confirm(`Check ${ids.length} links? Each site will be contacted once.`)) return;
   $('#btn-check').disabled = true;
-  showProgress('Checking links…', 0, ids.length);
+  showProgress('Checking links…', 0, ids.length, 'links');
+  const started = Date.now();
   try {
     const r = await window.api.checkLinks(ids);
     if (r.error) toast(r.error);
     else {
       await reload();
-      const checked = state.items.filter(b => ids.includes(b.id));
+      // Count only links checked in this run, not results left from earlier checks.
+      const wanted = new Set(ids);
+      const checked = state.items.filter(b => wanted.has(b.id) && b.checked_at >= started);
       const dead = checked.filter(b => b.status === 'dead').length;
       const warn = checked.filter(b => b.status === 'warn').length;
-      toast(`Done: ${dead} dead, ${warn} with problems. See “Dead links” in the sidebar.`, 7000);
+      toast(r.cancelled
+        ? `Stopped after ${r.count} of ${ids.length} links. Results so far are kept: ${dead} dead, ${warn} with problems.`
+        : `Done: ${dead} dead, ${warn} with problems. See “Dead links” in the sidebar.`, 7000);
     }
   } finally {
     $('#btn-check').disabled = false;
@@ -601,6 +626,52 @@ $('#sel-delete').onclick = () => {
 };
 $('#sel-restore').onclick = () => restoreBookmarks([...state.checked]);
 
+// ---------- rename / merge a category ----------
+
+// When the open view is the category being renamed, follow it to the new name (or to All).
+function leaveCategoryView(oldName, newName) {
+  if (state.view.type === 'category' && state.view.value === oldName) {
+    state.view = newName ? { type: 'category', value: newName } : { type: 'smart', value: 'all' };
+  }
+}
+
+function openCategoryRename(name) {
+  const dlg = $('#dlg-cat');
+  const others = [...new Set(state.items.map(b => b.category).filter(c => c && c !== name))].sort();
+  dlg.oldName = name;
+  $('#cat-title').textContent = `Rename “${name}”`;
+  $('#cat-names').innerHTML = others.map(c => `<option value="${esc(c)}">`).join('');
+  $('#cat-name').value = name;
+  updateCategoryHint();
+  dlg.showModal();
+  $('#cat-name').select();
+}
+
+function updateCategoryHint() {
+  const dlg = $('#dlg-cat');
+  const v = $('#cat-name').value.trim();
+  // Case-insensitive match, so "work" merges into an existing "Work".
+  const target = state.items.map(b => b.category).find(c => c && c !== dlg.oldName && c.toLowerCase() === v.toLowerCase());
+  const n = target ? state.items.filter(b => b.category === target).length : 0;
+  $('#cat-hint').textContent = target
+    ? `“${target}” already exists (${plural(n)}). Both will be merged into it.`
+    : 'Type an existing category\'s name to merge into it.';
+  $('#cat-ok').textContent = target ? 'Merge' : 'Rename';
+  dlg.target = target || v;
+}
+
+$('#cat-name').addEventListener('input', updateCategoryHint);
+$('#cat-cancel').onclick = () => $('#dlg-cat').close();
+$('#cat-form').addEventListener('submit', () => {
+  const dlg = $('#dlg-cat');
+  const from = dlg.oldName, to = dlg.target;
+  if (!to || to === from) return;
+  const ids = state.items.filter(b => b.category === from).map(b => b.id);
+  const merging = state.items.some(b => b.category === to);
+  leaveCategoryView(from, to);
+  applyToIds(ids, { category: to }, merging ? `Merged “${from}” into “${to}”.` : `Renamed “${from}” to “${to}”.`);
+});
+
 // ---------- info panel ----------
 
 $('#btn-info').onclick = async () => {
@@ -610,6 +681,9 @@ $('#btn-info').onclick = async () => {
   $('#dlg-info').scrollTop = 0; // focus lands on Close at the bottom; start at the top
 };
 $('#info-close').onclick = () => $('#dlg-info').close();
+// The full guide lives in the GitHub README (the repo is private, so it needs your GitHub sign-in).
+const README_URL = 'https://github.com/b0red/Bookmark-synker#readme';
+$('#info-more').onclick = (e) => { e.preventDefault(); window.api.open(README_URL); };
 
 // ---------- bulk actions on the selection ----------
 
@@ -617,9 +691,13 @@ const plural = (n) => `${n} bookmark${n === 1 ? '' : 's'}`;
 
 // Applies one change to every selected bookmark, with Undo that puts each one's old values back.
 async function bulkApply(patch, message) {
-  const ids = [...state.checked];
+  return applyToIds([...state.checked], patch, message);
+}
+
+async function applyToIds(ids, patch, message) {
   if (!ids.length) return;
-  const before = state.items.filter(b => state.checked.has(b.id))
+  const set = new Set(ids);
+  const before = state.items.filter(b => set.has(b.id))
     .map(b => ({ id: b.id, category: b.category, favorite: b.favorite, tags: [...b.tags] }));
   await window.api.bulkUpdate(ids, patch);
   await reload();
@@ -676,14 +754,35 @@ const DELETABLE_VIEWS = new Set(['stale', 'dead', 'warn']);
 function hideMenu() { $('#ctxmenu').classList.add('hidden'); }
 
 $('#sidebar').addEventListener('contextmenu', (e) => {
-  const el = e.target.closest('.nav-item[data-type="smart"]');
-  if (!el) return;
   const menu = $('#ctxmenu');
   const place = () => {
-    menu.style.left = Math.min(e.clientX, innerWidth - 240) + 'px';
-    menu.style.top = Math.min(e.clientY, innerHeight - 60) + 'px';
     menu.classList.remove('hidden');
+    menu.style.left = Math.min(e.clientX, innerWidth - menu.offsetWidth - 8) + 'px';
+    menu.style.top = Math.min(e.clientY, innerHeight - menu.offsetHeight - 8) + 'px';
   };
+  const catEl = e.target.closest('.nav-item[data-type="category"]');
+  if (catEl) {
+    e.preventDefault();
+    const name = catEl.dataset.value;
+    const members = state.items.filter(b => b.category === name);
+    menu.innerHTML = `<button data-act="rename">Rename or merge…</button>
+      <button data-act="uncat">Remove category (${members.length} become uncategorized)</button>
+      <button class="danger" data-act="delete">Delete ${members.length === 1 ? "the 1 bookmark" : `all ${members.length} bookmarks`}</button>`;
+    place();
+    menu.querySelector('[data-act="rename"]').onclick = () => { hideMenu(); openCategoryRename(name); };
+    menu.querySelector('[data-act="uncat"]').onclick = () => {
+      hideMenu();
+      leaveCategoryView(name, null);
+      applyToIds(members.map(b => b.id), { category: null }, `Removed category “${name}” from ${plural(members.length)}.`);
+    };
+    menu.querySelector('[data-act="delete"]').onclick = () => {
+      hideMenu();
+      deleteBookmarks(members.map(b => b.id), `all ${plural(members.length)} in category “${name}”`);
+    };
+    return;
+  }
+  const el = e.target.closest('.nav-item[data-type="smart"]');
+  if (!el) return;
   if (el.dataset.value === 'deleted') {
     e.preventDefault();
     const n = state.deleted.length;

@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('api', {
   saveSettings: (patch) => ipcRenderer.invoke('settings:save', patch),
   ollamaStatus: (model) => ipcRenderer.invoke('ollama:status', model),
   categorize: (ids) => ipcRenderer.invoke('claude:categorize', { ids }),
+  cancelJob: (kind) => ipcRenderer.invoke('job:cancel', kind),
   checkLinks: (ids) => ipcRenderer.invoke('links:check', { ids }),
   exportHtml: (ids, groupBy) => ipcRenderer.invoke('export:html', { ids, groupBy }),
   onProgress: (fn) => ipcRenderer.on('progress', (_e, p) => fn(p)),
