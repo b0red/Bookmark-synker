@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS dup_dismissed (
 );
 `;
 
+const EXPORT_FORMAT = 'bookmark-syncer-library';
+
 class Library {
   static async open(file) {
     const SQL = await initSqlJs();
@@ -405,6 +407,106 @@ class Library {
         tags: d?.tags || [], sources: d?.sources || [], hasSnapshot: !!d,
       };
     }).filter(Boolean);
+  }
+
+  // ---------- whole-library export / import (JSON) ----------
+
+  // Everything needed to move the library to another PC: bookmarks with notes, tags, categories,
+  // browsers and merged URLs, plus the deleted list and "not duplicates" choices.
+  exportData(appVersion) {
+    const bookmarks = this.all('SELECT * FROM bookmarks ORDER BY id').map(b => {
+      const s = this.snapshot(b.id);
+      return {
+        url: b.url, title: b.title, folder: b.folder, category: b.category, notes: b.notes, favorite: b.favorite ? 1 : 0,
+        added_at: b.added_at, last_used_at: b.last_used_at, visit_count: b.visit_count, imported_at: b.imported_at,
+        status: b.status, status_code: b.status_code, checked_at: b.checked_at, read_later: b.read_later, opened_at: b.opened_at,
+        tags: s.tags, sources: s.sources, aliases: s.aliases.map(a => ({ url: a.url, merged_at: a.merged_at })),
+      };
+    });
+    return {
+      format: EXPORT_FORMAT, version: 1, exportedAt: Date.now(), app: appVersion || null,
+      bookmarks,
+      deleted: this.all('SELECT norm, removed_at, data FROM removed'),
+      notDuplicates: this.all('SELECT signature FROM dup_dismissed').map(d => d.signature),
+    };
+  }
+
+  // Merges an exportData() file into this library. Nothing is removed: bookmarks already here keep
+  // their values and get what's missing (category, title, notes, tags, browsers). Bookmarks you deleted
+  // here are skipped. Returns { added, merged, skipped, deleted }.
+  importData(data) {
+    if (!data || data.format !== EXPORT_FORMAT || !Array.isArray(data.bookmarks)) throw new Error('This is not a Bookmark syncer library file.');
+    if (data.version > 1) throw new Error('This file is from a newer version of Bookmark syncer. Update the app first.');
+    const str = (v) => (typeof v === 'string' ? v : '');
+    const num = (v) => (Number.isFinite(v) ? v : null);
+    const strList = (v) => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()) : []);
+    const isWebUrl = (u) => /^[a-z][a-z0-9+.-]*:/i.test(u);
+    let added = 0, merged = 0, skipped = 0, deleted = 0;
+    const now = Date.now();
+    this.run('BEGIN');
+    try {
+      for (const b of data.bookmarks) {
+        const url = str(b && b.url).trim();
+        if (!url || !isWebUrl(url)) { skipped++; continue; }
+        const norm = normalizeUrl(url);
+        const alias = this.get('SELECT bookmark_id FROM aliases WHERE norm = ?', [norm]);
+        const existing = alias ? this.get('SELECT * FROM bookmarks WHERE id = ?', [alias.bookmark_id]) : this.get('SELECT * FROM bookmarks WHERE norm = ?', [norm]);
+        if (!existing && this.get('SELECT 1 AS x FROM removed WHERE norm = ?', [norm])) { skipped++; continue; }
+        let id;
+        if (existing) {
+          id = existing.id;
+          merged++;
+          const notes = [existing.notes, str(b.notes)].filter(Boolean);
+          const min = (...v) => { const x = v.filter(n => n != null); return x.length ? Math.min(...x) : null; };
+          const max = (...v) => { const x = v.filter(n => n != null); return x.length ? Math.max(...x) : null; };
+          const newerCheck = num(b.checked_at) && (!existing.checked_at || b.checked_at > existing.checked_at);
+          this.run(`UPDATE bookmarks SET title = ?, category = ?, notes = ?, favorite = ?, added_at = ?, last_used_at = ?, visit_count = ?,
+              read_later = ?, opened_at = ?, status = ?, status_code = ?, checked_at = ? WHERE id = ?`,
+            [existing.title || str(b.title), existing.category || str(b.category) || null,
+             [...new Set(notes)].join('\n\n'), existing.favorite || b.favorite ? 1 : 0,
+             min(existing.added_at, num(b.added_at)), max(existing.last_used_at, num(b.last_used_at)), max(existing.visit_count, num(b.visit_count)),
+             existing.read_later ?? num(b.read_later), max(existing.opened_at, num(b.opened_at)),
+             newerCheck ? str(b.status) || null : existing.status, newerCheck ? num(b.status_code) : existing.status_code,
+             newerCheck ? b.checked_at : existing.checked_at, id]);
+        } else {
+          this.run(`INSERT INTO bookmarks (url, norm, title, domain, folder, category, notes, favorite, added_at, last_used_at, visit_count,
+              imported_at, status, status_code, checked_at, read_later, opened_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [url, norm, str(b.title), domainOf(url), str(b.folder), str(b.category) || null, str(b.notes), b.favorite ? 1 : 0,
+             num(b.added_at), num(b.last_used_at), num(b.visit_count), num(b.imported_at) || now, str(b.status) || null,
+             num(b.status_code), num(b.checked_at), num(b.read_later), num(b.opened_at)]);
+          id = this.get('SELECT last_insert_rowid() AS id').id;
+          added++;
+        }
+        for (const t of strList(b.tags)) this.run('INSERT OR IGNORE INTO tags (bookmark_id, tag) VALUES (?, ?)', [id, t.trim().toLowerCase()]);
+        for (const s of Array.isArray(b.sources) ? b.sources : []) {
+          if (s && str(s.source)) this.run('INSERT OR IGNORE INTO sources (bookmark_id, source, folder) VALUES (?, ?, ?)', [id, s.source, str(s.folder)]);
+        }
+        for (const a of Array.isArray(b.aliases) ? b.aliases : []) {
+          const au = str(a && a.url);
+          if (!au || !isWebUrl(au)) continue;
+          const an = normalizeUrl(au);
+          if (this.get('SELECT 1 AS x FROM bookmarks WHERE norm = ?', [an]) || this.get('SELECT 1 AS x FROM aliases WHERE norm = ?', [an])) continue;
+          this.run('INSERT INTO aliases (norm, bookmark_id, url, merged_at) VALUES (?, ?, ?, ?)', [an, id, au, num(a.merged_at) || now]);
+        }
+      }
+      // The deleted list, so imports on this PC skip those too (unless the bookmark is in the library here).
+      for (const d of Array.isArray(data.deleted) ? data.deleted : []) {
+        const norm = str(d && d.norm);
+        if (!norm || this.get('SELECT 1 AS x FROM bookmarks WHERE norm = ?', [norm]) || this.get('SELECT 1 AS x FROM aliases WHERE norm = ?', [norm])) continue;
+        if (this.get('SELECT 1 AS x FROM removed WHERE norm = ?', [norm])) continue;
+        let snap = typeof d.data === 'string' ? d.data : null;
+        try { if (snap) JSON.parse(snap); } catch { snap = null; }
+        this.run('INSERT INTO removed (norm, removed_at, data) VALUES (?, ?, ?)', [norm, num(d.removed_at) || now, snap]);
+        deleted++;
+      }
+      for (const sig of strList(data.notDuplicates)) this.run('INSERT OR IGNORE INTO dup_dismissed (signature) VALUES (?)', [sig]);
+      this.run('COMMIT');
+    } catch (e) {
+      this.run('ROLLBACK');
+      throw e;
+    }
+    this.save();
+    return { added, merged, skipped, deleted };
   }
 
   // Puts deleted bookmarks back (ids from listRemoved) and stops skipping them on import.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0 (2026-11-21)
+
+- **Restore a library backup from the app**: ⚙ Settings → *Library backups* lists the daily backups; **Restore…** puts one back. Your current library is saved first (and listed too), so you can always switch back
+- **Export and import the whole library** as one JSON file, with categories, tags, notes, favorites, Read later, browsers, merged URLs and the deleted list. Importing merges: nothing is removed, values already in the library are kept and only what's missing is filled in. A backup is saved before every import
+- **Keyboard navigation in the list**: ↑/↓ or J/K, PgUp/PgDn, Home/End move through the list and show the details; Enter opens, Space ticks, Shift+↑/↓ ticks a range, Del deletes the open bookmark, Esc closes the details. ↓ in the search box jumps to the results
+
 ## 1.0.1 (2026-11-21)
 
 Stability and security:

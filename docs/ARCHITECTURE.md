@@ -20,8 +20,8 @@ The renderer runs sandboxed with `contextIsolation: true` and `nodeIntegration: 
 | `src/duplicates.js` | Near-duplicates: a looser URL key (`m.`/AMP/`youtu.be`/index pages, case) plus same path + title, grouped with union-find. Picks which bookmark to keep |
 | `src/autoimport.js` | Imports on start and when a browser's bookmark file changes (checks timestamps once a minute; Firefox at most every 10 minutes) |
 | `src/tray.js` | Tray icon, the global search shortcut (`globalShortcut`) and *Start with Windows* |
-| `src/safety.js` | Daily library backups (14 kept), opening a damaged library from the newest working backup, `crash.log`, atomic file writes |
-| `src/db.js` | The `Library` class, a SQLite database via sql.js, saved atomically to disk |
+| `src/safety.js` | Daily library backups (14 kept) and snapshots before a restore or import (10 kept), restoring a backup, opening a damaged library from the newest working backup, `crash.log`, atomic file writes |
+| `src/db.js` | The `Library` class, a SQLite database via sql.js, saved atomically to disk; `exportData` / `importData` for the whole-library JSON file |
 | `src/rules.js` | Offline categorizer: known domains, keywords, folder names |
 | `src/ollama.js` | Local AI categorizer (Ollama HTTP API, structured JSON output, automatic CPU fallback) |
 | `src/claude.js` | Claude categorizer (Anthropic SDK, structured JSON output). Also holds the shared prompt and schema |
@@ -35,7 +35,8 @@ The renderer runs sandboxed with `contextIsolation: true` and `nodeIntegration: 
 | `scripts/test-sync.js` | Runs browser sync on copies of this PC's browser files and checks the result |
 | `scripts/test-extension.js` | Checks the bridge's security rules, then runs the extension's find / delete / undo and sort-into-folders / undo logic on in-memory copies of this PC's Chromium and Firefox bookmark trees, and checks the Firefox build |
 | `scripts/test-dups.js`, `test-autoimport.js`, `test-later.js`, `test-ollama.js` | Near-duplicates and merging, automatic import, Read later, and the Ollama CPU fallback, on throwaway libraries and fakes |
-| `scripts/test-safety.js` | Daily backups and pruning, recovery from a damaged library, the crash log |
+| `scripts/test-safety.js` | Daily backups and snapshots, pruning, restoring a backup, recovery from a damaged library, the crash log |
+| `scripts/test-library-file.js` | Whole-library JSON export and import: into an empty library, into one with its own values, again, and bad files |
 | `scripts/make-demo.js` | Builds a made-up library and saves `docs/screenshot.png` |
 | `scripts/make-icons.js` | Draws the extension icons and `build/icon.ico` (pure Node, no dependencies) |
 | `package.json` → `build` | electron-builder settings for the NSIS installer (`npm run dist`): per-user install, keeps the library on uninstall, `extension/` unpacked from `app.asar` so browsers can load it as a folder, English and Swedish Electron locales only |

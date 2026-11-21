@@ -3,22 +3,52 @@
 const fs = require('fs');
 const path = require('path');
 
-const KEEP_BACKUPS = 14;
+const KEEP_BACKUPS = 14;   // daily copies
+const KEEP_SNAPSHOTS = 10; // copies made right before a restore or an import
 const MAX_LOG = 512 * 1024;
 
 const backupDir = (dataDir) => path.join(dataDir, 'backups');
 const day = (t = Date.now()) => new Date(t).toISOString().slice(0, 10);
 
-// Newest first: [{ file, name, date, size }]
+// Daily: library-2026-01-20.sqlite. Snapshot: library-2026-01-20T13-05-22-before-restore.sqlite (UTC)
+const BACKUP_NAME = /^library-(\d{4}-\d{2}-\d{2})(?:T(\d{2})-(\d{2})-(\d{2})-([a-z-]+))?\.sqlite$/;
+
+// Newest first: [{ file, name, date, at, kind ('daily' | 'before-restore' | 'before-import'), size }]
 function listLibraryBackups(dataDir) {
   let names = [];
   try { names = fs.readdirSync(backupDir(dataDir)); } catch { return []; }
-  return names.filter(n => /^library-\d{4}-\d{2}-\d{2}\.sqlite$/.test(n)).sort().reverse().map(name => {
+  return names.filter(n => BACKUP_NAME.test(n)).sort().reverse().map(name => {
+    const m = name.match(BACKUP_NAME);
     const file = path.join(backupDir(dataDir), name);
-    let size = 0;
-    try { size = fs.statSync(file).size; } catch {}
-    return { file, name, date: name.slice(8, 18), size };
+    let size = 0, mtime = null;
+    try { const st = fs.statSync(file); size = st.size; mtime = st.mtimeMs; } catch {}
+    const at = m[2] ? Date.parse(`${m[1]}T${m[2]}:${m[3]}:${m[4]}Z`) : mtime;
+    return { file, name, date: m[1], at, kind: m[5] || 'daily', size };
   });
+}
+
+function prune(dataDir) {
+  const all = listLibraryBackups(dataDir);
+  const old = [...all.filter(b => b.kind === 'daily').slice(KEEP_BACKUPS), ...all.filter(b => b.kind !== 'daily').slice(KEEP_SNAPSHOTS)];
+  for (const b of old) { try { fs.unlinkSync(b.file); } catch {} }
+}
+
+// A copy of the library right before a big change (reason: 'before-restore' | 'before-import').
+function snapshotLibrary(dataDir, libraryFile, reason, now = Date.now()) {
+  if (!fs.existsSync(libraryFile)) return null;
+  fs.mkdirSync(backupDir(dataDir), { recursive: true });
+  const stamp = new Date(now).toISOString().slice(0, 19).replace(/:/g, '-');
+  const dest = path.join(backupDir(dataDir), `library-${stamp}-${reason}.sqlite`);
+  fs.copyFileSync(libraryFile, dest);
+  prune(dataDir);
+  return dest;
+}
+
+// Puts a backup in place of the library file. The caller saves a snapshot first and reopens the library.
+function restoreLibraryFile(backupFile, libraryFile) {
+  const tmp = libraryFile + '.restore.tmp';
+  fs.copyFileSync(backupFile, tmp);
+  fs.renameSync(tmp, libraryFile);
 }
 
 // Copies library.sqlite to backups/library-<date>.sqlite once a day, keeping the newest 14.
@@ -29,7 +59,7 @@ function backupLibrary(dataDir, libraryFile, now = Date.now()) {
   const dest = path.join(backupDir(dataDir), `library-${day(now)}.sqlite`);
   if (fs.existsSync(dest)) return null;
   fs.copyFileSync(libraryFile, dest);
-  for (const old of listLibraryBackups(dataDir).slice(KEEP_BACKUPS)) { try { fs.unlinkSync(old.file); } catch {} }
+  prune(dataDir);
   return dest;
 }
 
@@ -71,4 +101,4 @@ function writeFileAtomic(file, data) {
   fs.renameSync(tmp, file);
 }
 
-module.exports = { backupLibrary, listLibraryBackups, openLibrarySafely, logError, writeFileAtomic, KEEP_BACKUPS };
+module.exports = { backupLibrary, snapshotLibrary, restoreLibraryFile, listLibraryBackups, openLibrarySafely, logError, writeFileAtomic, KEEP_BACKUPS, KEEP_SNAPSHOTS };

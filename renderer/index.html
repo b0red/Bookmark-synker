@@ -52,7 +52,7 @@
         <button id="sel-clear">Clear selection</button>
         <span id="sel-hint" class="muted small"></span>
       </div>
-      <ul id="list" class="list"></ul>
+      <ul id="list" class="list" tabindex="0" aria-label="Bookmarks"></ul>
       <div id="empty" class="empty hidden">
         <h2>Your library is empty</h2>
         <p>Click <b>Import</b> to read bookmarks straight from Chrome, Edge, Firefox and other browsers on this PC.</p>
@@ -102,9 +102,10 @@
 
     <h3>Shortcuts</h3>
     <ul class="howto keys-list">
-      <li><kbd>Ctrl</kbd>+<kbd>K</kbd> search · <kbd>Enter</kbd> in search opens the top result · double-click a row opens it</li>
+      <li><kbd>Ctrl</kbd>+<kbd>K</kbd> search · <kbd>Enter</kbd> in search opens the top result · <kbd>↓</kbd> goes to the results · double-click a row opens it</li>
+      <li><kbd>↑</kbd> <kbd>↓</kbd> (or <kbd>J</kbd> <kbd>K</kbd>), <kbd>PgUp</kbd> <kbd>PgDn</kbd>, <kbd>Home</kbd> <kbd>End</kbd> move through the list · <kbd>Enter</kbd> opens · <kbd>Space</kbd> ticks · <kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> ticks a range</li>
       <li><kbd>Ctrl</kbd>+click ticks one more · <kbd>Shift</kbd>+click ticks a range · <kbd>Ctrl</kbd>+<kbd>A</kbd> ticks all in view</li>
-      <li><kbd>Del</kbd> deletes the ticked bookmarks · <kbd>Esc</kbd> clears the selection</li>
+      <li><kbd>Del</kbd> deletes the ticked bookmarks (or the open one) · <kbd>Esc</kbd> clears the selection, then closes the details</li>
       <li>Drag bookmarks onto a category, <i>Favorites</i> or <i>Read later</i> · <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> searches from any program (⚙ to change)</li>
     </ul>
     <p class="muted small">Search filters: <code>tag:</code> <code>cat:</code> <code>site:</code> <code>in:</code> (source), e.g. <code>site:github.com tag:python</code></p>
@@ -268,7 +269,15 @@
 
     <label>Library backups</label>
     <p id="backups-status" class="muted small"></p>
-    <div class="row"><button id="backups-open" class="tiny">Open backups folder</button></div>
+    <div class="row backups-row">
+      <select id="backups-list" title="Choose a backup to go back to"></select>
+      <button id="backups-restore" class="tiny" title="Replace your library with this backup. Your current library is backed up first.">Restore…</button>
+      <button id="backups-open" class="tiny">Open folder</button>
+    </div>
+
+    <label>Move or copy the library</label>
+    <p class="muted small">One file with every bookmark, category, tag, note and browser, plus what you deleted. Import it on another PC (or this one): it is merged into the library there, nothing is removed.</p>
+    <div class="row"><button id="lib-export" class="tiny">Export library…</button><button id="lib-import" class="tiny">Import library…</button></div>
 
     <label>Read later</label>
     <label class="check"><input type="checkbox" id="set-nudge"> Remind me about unread bookmarks (at most once a week)</label>

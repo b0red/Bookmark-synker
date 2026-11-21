@@ -23,6 +23,28 @@ const safety = require('../src/safety');
     assert.strictEqual(backups[0].date, '2026-01-20', 'newest first');
     assert.strictEqual(backups.at(-1).date, '2026-01-07');
 
+    // Snapshots before a restore/import: listed newest first, kept apart from the daily count.
+    const snap = safety.snapshotLibrary(dir, file, 'before-restore', start + 19 * DAY + 3600000);
+    assert.ok(snap.endsWith('library-2026-01-20T01-00-00-before-restore.sqlite'));
+    for (let i = 0; i < 12; i++) safety.snapshotLibrary(dir, file, 'before-import', start + 21 * DAY + i * 1000);
+    let withSnaps = safety.listLibraryBackups(dir);
+    assert.strictEqual(withSnaps.filter(b => b.kind === 'daily').length, safety.KEEP_BACKUPS, 'snapshots don\'t push out daily backups');
+    assert.strictEqual(withSnaps.filter(b => b.kind !== 'daily').length, safety.KEEP_SNAPSHOTS);
+    assert.strictEqual(withSnaps[0].kind, 'before-import');
+    assert.strictEqual(withSnaps[0].at, start + 21 * DAY + 11000);
+    for (const b of withSnaps.filter(x => x.kind !== 'daily')) fs.unlinkSync(b.file);
+
+    // Restoring a backup: the file is replaced and opens with the backup's bookmarks.
+    const other = path.join(dir, 'other.sqlite');
+    const ol = await Library.open(other);
+    ol.importItems([{ url: 'https://example.com/only-in-other', title: 'X' }], 'Chrome · Default');
+    const copy = path.join(dir, 'restore-target.sqlite');
+    fs.copyFileSync(file, copy);
+    safety.restoreLibraryFile(other, copy);
+    assert.deepStrictEqual((await Library.open(copy)).list().map(b => b.title), ['X']);
+    assert.ok(!fs.existsSync(copy + '.restore.tmp'));
+    fs.unlinkSync(copy); fs.unlinkSync(other);
+
     // A damaged library: moved aside, newest backup used.
     lib.importItems([{ url: 'https://example.com/c', title: 'C (after the backup)' }], 'Chrome · Default');
     fs.writeFileSync(file, 'this is not a database');

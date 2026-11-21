@@ -23,6 +23,8 @@ Your browsers' own bookmarks are only **read**, except when you click **Sync to 
 | **Read later** | A queue: the *Read later* button in the details pane, in the selection bar, or drag onto *Read later*. **✓ Done reading** takes it out. At most once a week the app reminds you about unread ones (or recent bookmarks you never opened). |
 | **Search from anywhere** | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> opens the app with the search box ready, from any program. The app can keep running in the tray and start with Windows. Change the keys in ⚙ Settings. |
 | **Select & change many** | Tick bookmarks (or Ctrl+click / Shift+click, Ctrl+A for all), then **Set category…**, **Tags…** (add or remove), **★ Favorite / ☆ Unfavorite** or **Delete selected** (<kbd>Del</kbd>). Every change has an **Undo** button. |
+| **Keyboard** | <kbd>↑</kbd> <kbd>↓</kbd> (or <kbd>J</kbd> <kbd>K</kbd>), <kbd>PgUp</kbd> <kbd>PgDn</kbd>, <kbd>Home</kbd> <kbd>End</kbd> move through the list and show the details; <kbd>Enter</kbd> opens, <kbd>Space</kbd> ticks, <kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> ticks a range, <kbd>Del</kbd> deletes. <kbd>↓</kbd> in the search box jumps to the results. |
+| **Backups and moving** | A copy of the library is saved every day. ⚙ Settings → *Library backups* → **Restore…** goes back to one (your current library is saved first, so you can switch back). **Export library…** writes everything (categories, tags, notes, deleted list) to one file; **Import library…** merges such a file into the library on another PC. |
 | **Help panel** | The **?** button explains the colors, the workflow and the shortcuts, with a link to this README. |
 | **Recently deleted** | Lists everything you deleted, newest first. **Restore** one, a selection, or right-click → *Restore all*. Restored links are imported again in the future. |
 | **Clean up** | Right-click **Not opened in a year**, **Dead links** or **Links with problems** → *Delete all*. Deleted links stay deleted on future imports. |
@@ -60,11 +62,11 @@ Everything is stored locally in `%APPDATA%\Bookmark syncer\`. Versions before 0.
 |---|---|
 | `library.sqlite` | Your library (bookmarks, categories, tags, notes, deleted-link list) |
 | `settings.json` | Which categorizer to use, Ollama model, import, shortcut and tray options, the extension pairing code |
-| `backups\` | A copy of `library.sqlite` from each of the last 14 days (⚙ Settings → *Open backups folder*) |
+| `backups\` | A copy of `library.sqlite` from each of the last 14 days, plus the last 10 made right before a restore or an import (⚙ Settings → *Library backups*) |
 | `crash.log` | Unexpected errors, if any, to help find problems |
 | `anthropic-key.bin` | Your Claude API key, encrypted with your Windows account (only if you saved one) |
 
-The app backs up your library once a day. To go back to a backup, quit the app (tray icon → Quit) and copy it over `library.sqlite`. If the library file is ever damaged, the app starts from the newest backup by itself and keeps the damaged file. To start over, delete `library.sqlite`.
+The app backs up your library once a day. To go back to a backup, use ⚙ Settings → *Library backups* → **Restore…**. To move to another PC, use **Export library…** there and **Import library…** on the new PC. If the library file is ever damaged, the app starts from the newest backup by itself and keeps the damaged file. To start over, delete `library.sqlite`.
 
 ## Privacy
 

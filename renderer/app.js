@@ -638,11 +638,7 @@ async function openSettings() {
   $('#set-import-start').checked = !!s.importOnStart;
   $('#set-watch').checked = !!s.watchBrowsers;
   $('#set-nudge').checked = s.readLaterNudge !== false;
-  window.api.libraryBackups().then(({ backups }) => {
-    $('#backups-status').textContent = backups.length
-      ? `A copy of your library is saved every day (the last 14 are kept). Newest: ${backups[0].date}, ${backups.length} in total. To go back to one, quit the app and copy it over library.sqlite.`
-      : 'A copy of your library is saved every day; the first one is made shortly.';
-  }).catch(() => {});
+  refreshLibraryBackups();
   $('#set-hotkey-on').checked = !!s.hotkeyEnabled;
   $('#set-hotkey').value = s.hotkey || '';
   $('#set-tray').checked = !!s.closeToTray;
@@ -713,7 +709,48 @@ window.api.onFocusSearch(() => {
   $('#search').select();
 });
 
+// ---------- library backups, export and import ----------
+
+function backupName(b) {
+  if (b.kind === 'daily') return `${fmtDate(Date.parse(b.date + 'T12:00:00'))} (daily)`;
+  return `${fmtDateTime(b.at)} (${b.kind === 'before-import' ? 'before an import' : 'before a restore'})`;
+}
+
+async function refreshLibraryBackups() {
+  const { backups } = await window.api.libraryBackups().catch(() => ({ backups: [] }));
+  $('#backups-status').textContent = backups.length
+    ? 'A copy of your library is saved every day (the last 14 are kept), and right before a restore or an import. Choose one to go back to:'
+    : 'A copy of your library is saved every day; the first one is made shortly.';
+  $('#backups-list').innerHTML = backups.map(b => `<option value="${esc(b.name)}">${esc(backupName(b))}</option>`).join('');
+  $('#backups-list').classList.toggle('hidden', !backups.length);
+  $('#backups-restore').classList.toggle('hidden', !backups.length);
+}
+
 $('#backups-open').onclick = () => window.api.openLibraryBackups();
+$('#backups-restore').onclick = async () => {
+  const name = $('#backups-list').value;
+  if (!name) return;
+  const r = await window.api.restoreLibraryBackup(name);
+  if (r.cancelled) return;
+  if (r.error) return toast(r.error, 8000);
+  state.selectedId = null; state.checked.clear();
+  $('#dlg-settings').close();
+  await reload();
+  toast(`Restored your library from ${r.from}: ${plural(r.count)}. Your library from before is in the backups list, if you want it back.`, 10000);
+};
+$('#lib-export').onclick = async () => {
+  const r = await window.api.exportLibrary();
+  if (r) toast(`Exported ${plural(r.count)} to ${r.file}`, 8000);
+};
+$('#lib-import').onclick = async () => {
+  const r = await window.api.importLibrary();
+  if (!r || r.cancelled) return;
+  if (r.error) return toast(r.error, 10000);
+  $('#dlg-settings').close();
+  await reload();
+  toast(`Imported the library file: ${r.added} new, ${r.merged} already here (merged)` +
+    (r.skipped ? `, ${r.skipped} skipped because you deleted them here` : '') + '.', 10000);
+};
 $('#set-nudge').addEventListener('change', (e) => window.api.saveSettings({ readLaterNudge: e.target.checked }));
 $('#set-watch').addEventListener('change', (e) => window.api.saveSettings({ watchBrowsers: e.target.checked }));
 
@@ -1272,6 +1309,8 @@ $('#search').addEventListener('input', (e) => { state.query = e.target.value; re
 $('#search').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && state.visible[0]) openBookmark(state.visible[0]);
   if (e.key === 'Escape') { e.target.value = ''; state.query = ''; renderList(); }
+  // ↓ moves from the search box into the results.
+  if (e.key === 'ArrowDown' && state.visible.length) { e.preventDefault(); e.stopPropagation(); $('#list').focus({ preventScroll: true }); moveCurrent(0, false); }
 });
 $('#sort').addEventListener('change', (e) => { state.sort = e.target.value; renderList(); });
 
@@ -1293,8 +1332,62 @@ document.addEventListener('keydown', (e) => {
     $('#sel-delete').click();
   } else if (e.key === 'Escape' && state.checked.size) {
     clearChecks();
+  } else if (e.key === 'Escape' && state.selectedId != null && !document.querySelector('#ctxmenu:not(.hidden)')) {
+    state.selectedId = null; renderList(); renderDetail();
+  } else {
+    listKeys(e);
   }
 });
+
+// ---------- keyboard navigation in the list ----------
+// ↑/↓ (or j/k), PgUp/PgDn, Home/End move through the list and show the details. Enter opens,
+// Space ticks, Shift+↑/↓ ticks a range, Del deletes the current one when nothing is ticked.
+
+const listRows = () => state.visible.slice(0, 3000); // what renderList shows
+
+function moveCurrent(index, extend) {
+  const rows = listRows();
+  if (!rows.length) return;
+  const from = rows.findIndex(b => b.id === state.selectedId);
+  const j = Math.max(0, Math.min(rows.length - 1, index));
+  const b = rows[j];
+  if (extend) {
+    if (state.anchor == null || !rows.some(r => r.id === state.anchor)) state.anchor = from === -1 ? b.id : rows[from].id;
+    const a = rows.findIndex(r => r.id === state.anchor);
+    for (let i = Math.min(a, j); i <= Math.max(a, j); i++) state.checked.add(rows[i].id);
+    syncChecks();
+  } else {
+    state.anchor = b.id;
+  }
+  state.selectedId = b.id;
+  for (const x of $('#list').querySelectorAll('li.selected')) x.classList.remove('selected');
+  const li = $('#list').querySelector(`li[data-id="${b.id}"]`);
+  if (li) { li.classList.add('selected'); li.scrollIntoView({ block: 'nearest' }); }
+  renderDetail();
+}
+
+function listKeys(e) {
+  const rows = listRows();
+  if (!rows.length || e.ctrlKey || e.altKey || e.metaKey) return;
+  const onButton = ['BUTTON', 'A'].includes(document.activeElement.tagName);
+  const i = rows.findIndex(b => b.id === state.selectedId);
+  const li = $('#list').querySelector('li');
+  const page = Math.max(1, Math.floor($('#list').clientHeight / (li ? li.offsetHeight : 40)) - 1);
+  const go = (to) => { e.preventDefault(); moveCurrent(to, e.shiftKey); };
+  switch (e.key) {
+    case 'ArrowDown': case 'j': return go(i === -1 ? 0 : i + 1);
+    case 'ArrowUp': case 'k': return go(i === -1 ? 0 : i - 1);
+    case 'PageDown': return go(i === -1 ? 0 : i + page);
+    case 'PageUp': return go(i === -1 ? 0 : i - page);
+    case 'Home': return go(0);
+    case 'End': return go(rows.length - 1);
+  }
+  const cur = rows[i];
+  if (!cur || onButton) return;
+  if (e.key === 'Enter') { e.preventDefault(); openBookmark(cur); }
+  else if (e.key === ' ') { e.preventDefault(); toggleCheck(cur.id, false); }
+  else if (e.key === 'Delete' && !isDeletedView()) deleteBookmarks([cur.id], `“${cur.title || cur.url}”`);
+}
 
 reload().then(() => setTimeout(readLaterNudge, 4000));
 

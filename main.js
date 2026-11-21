@@ -388,6 +388,75 @@ function dailyBackup() {
 }
 ipcMain.handle('library:backups', () => ({ folder: path.join(dataDir(), 'backups'), backups: safety.listLibraryBackups(dataDir()) }));
 ipcMain.handle('library:openBackups', () => { fs.mkdirSync(path.join(dataDir(), 'backups'), { recursive: true }); return shell.openPath(path.join(dataDir(), 'backups')); });
+
+const countBookmarks = (l) => l.get('SELECT COUNT(*) AS n FROM bookmarks').n;
+const busy = () => (jobs.categorize || jobs.links ? 'Wait until auto-categorize or the link check is finished (or cancel it) first.' : null);
+const backupLabel = (b) => b.kind === 'daily' ? `the daily backup from ${b.date}`
+  : `the copy made ${new Date(b.at).toLocaleString()} (${b.kind === 'before-import' ? 'before an import' : 'before a restore'})`;
+
+// Puts a backup back as the library. The current library is saved as a backup first, so it can be undone.
+ipcMain.handle('library:restoreBackup', async (_e, name) => {
+  const b = safety.listLibraryBackups(dataDir()).find(x => x.name === name);
+  if (!b) return { error: 'That backup no longer exists.' };
+  if (busy()) return { error: busy() };
+  let count;
+  try { count = countBookmarks(await Library.open(b.file)); } catch (e) { return { error: `This backup can't be read (${e.message}). Try an older one.` }; }
+  const now = countBookmarks(lib);
+  const r = await dialog.showMessageBox(win, {
+    type: 'question', buttons: ['Restore', 'Cancel'], defaultId: 1, cancelId: 1, title: 'Restore library',
+    message: `Restore your library from ${backupLabel(b)}?`,
+    detail: `The backup has ${count} bookmarks; your library has ${now} now. Changes made since then are replaced.\n\n` +
+      'Your current library is saved as a backup first, so you can switch back the same way. Bookmarks saved in your browsers since then come back with the next import.',
+  });
+  if (r.response !== 0) return { cancelled: true };
+  lib.save();
+  safety.snapshotLibrary(dataDir(), libraryFile(), 'before-restore');
+  safety.restoreLibraryFile(b.file, libraryFile());
+  lib = await Library.open(libraryFile());
+  return { ok: true, count: countBookmarks(lib), from: backupLabel(b) };
+});
+
+// The whole library as one JSON file (for moving it to another PC, or keeping a copy elsewhere).
+ipcMain.handle('library:exportJson', async () => {
+  const r = await dialog.showSaveDialog(win, {
+    title: 'Export the whole library',
+    defaultPath: `bookmark-syncer-library-${new Date().toISOString().slice(0, 10)}.json`,
+    filters: [{ name: 'Bookmark syncer library', extensions: ['json'] }],
+  });
+  if (r.canceled) return null;
+  const data = lib.exportData(app.getVersion());
+  safety.writeFileAtomic(r.filePath, JSON.stringify(data, null, 1));
+  return { file: r.filePath, count: data.bookmarks.length };
+});
+
+ipcMain.handle('library:importJson', async () => {
+  if (busy()) return { error: busy() };
+  const r = await dialog.showOpenDialog(win, {
+    title: 'Import a library file',
+    filters: [{ name: 'Bookmark syncer library', extensions: ['json'] }],
+    properties: ['openFile'],
+  });
+  if (r.canceled) return null;
+  const file = r.filePaths[0];
+  let data;
+  try {
+    if (fs.statSync(file).size > 300 * 1024 * 1024) throw new Error('The file is too large.');
+    data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) { return { error: `Couldn't read ${path.basename(file)}: ${e.message}` }; }
+  if (!data || data.format !== 'bookmark-syncer-library' || !Array.isArray(data.bookmarks)) {
+    return { error: `${path.basename(file)} isn't a Bookmark syncer library file. To import a browser's bookmarks.html, use Import → “Import a bookmarks.html file…”.` };
+  }
+  const when = data.exportedAt ? new Date(data.exportedAt).toLocaleString() : 'an unknown date';
+  const ok = await dialog.showMessageBox(win, {
+    type: 'question', buttons: ['Import', 'Cancel'], defaultId: 0, cancelId: 1, title: 'Import library',
+    message: `Import ${data.bookmarks.length} bookmarks from ${path.basename(file)}?`,
+    detail: `Exported ${when}. Nothing in your library is removed: bookmarks you already have keep their values and get the missing categories, tags, notes and browsers. Bookmarks you deleted here stay deleted.\n\nYour library is saved as a backup first (⚙ Settings → Library backups).`,
+  });
+  if (ok.response !== 0) return { cancelled: true };
+  lib.save();
+  safety.snapshotLibrary(dataDir(), libraryFile(), 'before-import');
+  try { return { ok: true, ...lib.importData(data) }; } catch (e) { return { error: e.message }; }
+});
 app.on('before-quit', () => { quitting = true; });
 app.on('will-quit', () => { if (DESKTOP_HOOKS) require('electron').globalShortcut.unregisterAll(); });
 

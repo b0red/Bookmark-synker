@@ -264,3 +264,12 @@ input.hotkey:focus { outline: 2px solid var(--accent); }
 .support { margin: 14px 0 4px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 13px; }
 .support p { margin: 0 0 8px; line-height: 1.4; }
 .support-links { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* library backups row in Settings */
+.backups-row { margin-top: 6px; }
+#backups-list { flex: 1; min-width: 0; }
+#dlg-settings .row button.tiny { margin-left: 0; }
+
+/* keyboard focus in the list */
+.list:focus { outline: none; }
+.list:focus-visible li.selected { box-shadow: inset 3px 0 0 var(--accent); }
