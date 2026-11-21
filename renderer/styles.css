@@ -233,3 +233,12 @@ body.resizing { cursor: col-resize; user-select: none; }
 .nav-item.cat-node .name { flex: 1; min-width: 0; }
 .caret { flex: 0 0 16px; width: 16px; text-align: center; color: var(--muted); font-size: 13px; cursor: pointer; border-radius: 3px; }
 .caret:hover { background: var(--hover); color: var(--text); }
+
+/* near-duplicates */
+#list li.grp-start { border-top: 2px solid var(--border); }
+#list li.grp-alt:not(.selected):not(.checked) { background: color-mix(in srgb, var(--panel) 60%, transparent); }
+.dup-box { margin-top: 16px; padding: 10px; border: 1px solid var(--warn); border-radius: 8px; }
+.dup-head { font-weight: 600; margin-bottom: 6px; }
+.dup-other { padding: 4px 6px; border-radius: 6px; cursor: pointer; word-break: break-all; }
+.dup-other:hover { background: var(--hover); }
+.facts .aliases { word-break: break-all; font-weight: normal; }

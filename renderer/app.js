@@ -22,6 +22,7 @@ const SMART = [
   { id: 'never', name: 'No visit history', test: b => !b.last_used_at && !b.visit_count },
   { id: 'stale', name: 'Not opened in a year', test: b => b.last_used_at && b.last_used_at < Date.now() - 365 * DAY },
   { id: 'multi', name: 'Saved in several browsers', test: b => new Set(b.sources.map(s => s.source)).size > 1 },
+  { id: 'dups', name: 'Possible duplicates', test: b => !!b.dup },
   { id: 'dead', name: 'Dead links', test: b => b.status === 'dead' },
   { id: 'warn', name: 'Links with problems', test: b => b.status === 'warn' },
   { id: 'unchecked', name: 'Not checked yet', test: b => !b.status },
@@ -111,6 +112,8 @@ function computeVisible() {
     return; // newest deletion first
   }
   state.visible = state.items.filter(b => matchesView(b) && matchesQuery(b, terms)).sort(SORTS[state.sort]);
+  // Duplicates: keep each group together.
+  if (state.view.type === 'smart' && state.view.value === 'dups') state.visible.sort((a, b) => a.dup.localeCompare(b.dup, undefined, { numeric: true }));
 }
 
 // ---------- rendering ----------
@@ -224,15 +227,19 @@ function renderList() {
   const visibleIds = new Set(state.visible.map(b => b.id));
   for (const id of state.checked) if (!visibleIds.has(id)) state.checked.delete(id);
 
+  const dupView = state.view.type === 'smart' && state.view.value === 'dups';
+  let lastGroup = null, alt = false;
   const html = state.visible.slice(0, 3000).map(b => {
+    let grp = '';
+    if (dupView) { if (b.dup !== lastGroup) { alt = !alt; grp = ' grp-start'; lastGroup = b.dup; } grp += alt ? ' grp-alt' : ''; }
     const status = b.status === 'dead' || b.status === 'warn' || b.status === 'ok'
       ? `<span class="dot ${b.status}" title="${b.status}${b.status_code ? ' ' + b.status_code : ''}"></span>` : '';
     const on = state.checked.has(b.id);
-    return `<li data-id="${b.id}" class="${b.id === state.selectedId ? 'selected' : ''}${on ? ' checked' : ''}">
+    return `<li data-id="${b.id}" class="${b.id === state.selectedId ? 'selected' : ''}${on ? ' checked' : ''}${grp}">
       <input type="checkbox" class="pick" tabindex="-1" ${on ? 'checked' : ''} title="Select">
       ${favicon(b)}
       <div class="main-col"><div class="t">${b.favorite ? '<span class="star">★</span> ' : ''}${esc(b.title || b.url)}</div>
-      <div class="u">${esc(b.domain)}${b.folder ? ' · ' + esc(b.folder) : ''}</div></div>
+      <div class="u">${dupView ? esc(b.url) : esc(b.domain) + (b.folder ? ' · ' + esc(b.folder) : '')}</div></div>
       <div class="meta">${b.deleted ? `<span class="muted small">deleted ${fmtDate(b.removed_at)}</span>` : ""}${b.category ? `<span class="chip cat">${esc(b.category)}</span>` : ''}${b.deleted ? "" : status}</div>
     </li>`;
   }).join('');
@@ -298,7 +305,10 @@ function renderDetail() {
       <span>Link</span><b>${statusText}${b.status_code ? ` (${b.status_code})` : ''}${b.checked_at ? ` · ${fmtDate(b.checked_at)}` : ''}</b>
       <span>Saved in</span><b>${browsers.map(esc).join('<br>')}</b>
       <span>Folders</span><b>${[...new Set(b.sources.map(s => s.folder).filter(Boolean))].map(esc).join('<br>') || '—'}</b>
-    </div>`;
+      ${b.aliases.length ? `<span>Also saved as</span><b class="aliases">${b.aliases.map(esc).join('<br>')}</b>` : ''}
+    </div>
+    ${dupSection(b)}`;
+  wireDupSection(b);
 
   const save = async (patch) => { await window.api.update(b.id, patch); await reload(); };
   $('#d-close').onclick = () => { state.selectedId = null; renderList(); renderDetail(); };
@@ -310,6 +320,55 @@ function renderDetail() {
   $('#d-cat').onchange = (e) => save({ category: e.target.value.trim() || null });
   $('#d-tags').onchange = (e) => save({ tags: e.target.value.split(',') });
   $('#d-notes').onchange = (e) => save({ notes: e.target.value });
+}
+
+// ---------- near-duplicates ----------
+
+const dupMembers = (b) => (b.dup ? state.items.filter(x => x.dup === b.dup) : []);
+
+function dupSection(b) {
+  const others = dupMembers(b).filter(x => x.id !== b.id);
+  if (!others.length) return '';
+  return `<div class="dup-box">
+    <div class="dup-head">Possibly the same page (${others.length}):</div>
+    ${others.map(o => `<div class="dup-other" data-id="${o.id}" title="Show it">
+      <div>${esc(o.title || o.url)}</div><div class="muted small">${esc(o.url)}</div></div>`).join('')}
+    <div class="btns">
+      <button class="primary" id="d-dup-keep" title="The others' browsers, folders, tags and notes move to this one. Nothing is deleted in your browsers.">Keep this one, merge the others</button>
+      <button id="d-dup-no">Not duplicates</button>
+    </div>
+  </div>`;
+}
+
+function wireDupSection(b) {
+  if (!$('#d-dup-keep')) return;
+  for (const el of document.querySelectorAll('.dup-other')) {
+    el.onclick = () => { state.selectedId = +el.dataset.id; renderList(); renderDetail(); };
+  }
+  $('#d-dup-keep').onclick = async () => {
+    const others = dupMembers(b).filter(x => x.id !== b.id);
+    const tokens = await window.api.mergeDuplicates(b.id, others.map(o => o.id));
+    await reload();
+    toast(`Merged ${others.length + 1} into one bookmark. The other URLs are kept as “Also saved as”.`, 8000,
+      { label: 'Undo', fn: async () => { await window.api.unmergeDuplicates(tokens); await reload(); toast('Undone.'); } });
+  };
+  $('#d-dup-no').onclick = async () => {
+    const sig = b.dup_signature;
+    await window.api.dismissDuplicates(sig);
+    await reload();
+    toast('Marked as not duplicates.', 6000,
+      { label: 'Undo', fn: async () => { await window.api.dismissDuplicates(sig, true); await reload(); } });
+  };
+}
+
+async function mergeAllDuplicates() {
+  const groups = new Set(state.items.filter(b => b.dup).map(b => b.dup)).size;
+  if (!groups) return;
+  if (!confirm(`Merge all ${groups} groups of possible duplicates?\n\nIn each group the bookmark you use and organized most is kept; the others' browsers, folders, tags and notes move to it. Nothing is deleted in your browsers.\n\nTip: check the groups first; there's an Undo afterwards.`)) return;
+  const tokens = await window.api.mergeAllDuplicates();
+  await reload();
+  toast(`Merged ${tokens.length} groups.`, 8000,
+    { label: 'Undo', fn: async () => { await window.api.unmergeDuplicates(tokens); await reload(); toast('Undone.'); } });
 }
 
 function renderAll() { renderSidebar(); renderList(); renderDetail(); }
@@ -982,6 +1041,14 @@ $('#sidebar').addEventListener('contextmenu', (e) => {
   }
   const el = e.target.closest('.nav-item[data-type="smart"]');
   if (!el) return;
+  if (el.dataset.value === 'dups') {
+    e.preventDefault();
+    const groups = new Set(state.items.filter(b => b.dup).map(b => b.dup)).size;
+    menu.innerHTML = `<button data-act="merge-all">Merge all ${groups} groups (keep the best of each)…</button>`;
+    place();
+    menu.querySelector('[data-act="merge-all"]').onclick = () => { hideMenu(); mergeAllDuplicates(); };
+    return;
+  }
   if (el.dataset.value === 'deleted') {
     e.preventDefault();
     const n = state.deleted.length;

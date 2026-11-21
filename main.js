@@ -10,6 +10,7 @@ const { checkAll } = require('./src/linkcheck');
 const browserSync = require('./src/browsersync');
 const { startBridge, newToken } = require('./src/bridge');
 const { buildFirefox } = require('./src/extbuild');
+const { pickKeeper } = require('./src/duplicates');
 
 let win, lib;
 const dataDir = () => app.getPath('userData');
@@ -102,6 +103,22 @@ ipcMain.handle('bookmark:remove', (_e, ids) => lib.remove(ids));
 ipcMain.handle('app:info', () => ({ name: app.getName(), version: app.getVersion() }));
 ipcMain.handle('bookmark:bulk', (_e, ids, patch) => lib.bulkUpdate(ids, patch));
 ipcMain.handle('bookmark:setFields', (_e, list) => lib.setFields(list));
+
+// Near-duplicates: merge (returns undo tokens), undo, or mark a group as "not duplicates".
+ipcMain.handle('dups:merge', (_e, keepId, otherIds) => [lib.mergeDuplicates(keepId, otherIds)].filter(Boolean));
+ipcMain.handle('dups:mergeAll', () => {
+  const groups = new Map();
+  for (const b of lib.list()) if (b.dup) (groups.get(b.dup) || groups.set(b.dup, []).get(b.dup)).push(b);
+  const tokens = [];
+  for (const members of groups.values()) {
+    const keep = pickKeeper(members);
+    const t = lib.mergeDuplicates(keep.id, members.map(m => m.id));
+    if (t) tokens.push(t);
+  }
+  return tokens;
+});
+ipcMain.handle('dups:unmerge', (_e, tokens) => { for (const t of [...tokens].reverse()) lib.unmerge(t); });
+ipcMain.handle('dups:dismiss', (_e, signature, undo) => lib.dismissDuplicates(signature, !!undo));
 ipcMain.handle('deleted:list', () => lib.listRemoved());
 ipcMain.handle('deleted:restore', (_e, ids) => lib.restore(ids));
 ipcMain.handle('open:url', (_e, url) => openExternal(url));

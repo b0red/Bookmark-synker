@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const initSqlJs = require('sql.js');
 const { normalizeUrl, domainOf } = require('./normalize');
+const { findDuplicates } = require('./duplicates');
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS bookmarks (
@@ -39,6 +40,17 @@ CREATE TABLE IF NOT EXISTS tags (
 CREATE TABLE IF NOT EXISTS removed (
   norm TEXT PRIMARY KEY,
   removed_at INTEGER
+);
+-- URLs merged into another bookmark (near-duplicates). Imports of these URLs add to that bookmark.
+CREATE TABLE IF NOT EXISTS aliases (
+  norm TEXT PRIMARY KEY,
+  bookmark_id INTEGER NOT NULL,
+  url TEXT NOT NULL,
+  merged_at INTEGER
+);
+-- Groups the user said are not duplicates (key: their URLs, sorted).
+CREATE TABLE IF NOT EXISTS dup_dismissed (
+  signature TEXT PRIMARY KEY
 );
 `;
 
@@ -84,7 +96,11 @@ class Library {
         if (!it.url) continue;
         const norm = normalizeUrl(it.url);
         if (this.get('SELECT 1 AS x FROM removed WHERE norm = ?', [norm])) { skipped++; continue; }
-        const existing = this.get('SELECT id, title, added_at, last_used_at, visit_count FROM bookmarks WHERE norm = ?', [norm]);
+        // A URL merged into another bookmark (near-duplicate) adds to that bookmark.
+        const alias = this.get('SELECT bookmark_id FROM aliases WHERE norm = ?', [norm]);
+        const existing = alias
+          ? this.get('SELECT id, title, added_at, last_used_at, visit_count FROM bookmarks WHERE id = ?', [alias.bookmark_id])
+          : this.get('SELECT id, title, added_at, last_used_at, visit_count FROM bookmarks WHERE norm = ?', [norm]);
         let id;
         if (existing) {
           id = existing.id;
@@ -130,7 +146,109 @@ class Library {
       if (!sources.has(s.bookmark_id)) sources.set(s.bookmark_id, []);
       sources.get(s.bookmark_id).push({ source: s.source, folder: s.folder });
     }
-    return rows.map(r => ({ ...r, tags: tags.get(r.id) || [], sources: sources.get(r.id) || [] }));
+    const aliases = new Map();
+    for (const a of this.all('SELECT bookmark_id, url FROM aliases ORDER BY merged_at')) {
+      if (!aliases.has(a.bookmark_id)) aliases.set(a.bookmark_id, []);
+      aliases.get(a.bookmark_id).push(a.url);
+    }
+    const out = rows.map(r => ({ ...r, tags: tags.get(r.id) || [], sources: sources.get(r.id) || [], aliases: aliases.get(r.id) || [] }));
+    const dismissed = new Set(this.all('SELECT signature FROM dup_dismissed').map(d => d.signature));
+    const dups = findDuplicates(out, dismissed);
+    for (const b of out) {
+      const d = dups.get(b.id);
+      if (d) { b.dup = d.group; b.dup_size = d.size; b.dup_signature = d.signature; }
+    }
+    return out;
+  }
+
+  // ---------- near-duplicates ----------
+
+  // Full state of a bookmark, for undo.
+  snapshot(id) {
+    const row = this.get('SELECT * FROM bookmarks WHERE id = ?', [id]);
+    if (!row) return null;
+    return {
+      ...row,
+      tags: this.all('SELECT tag FROM tags WHERE bookmark_id = ?', [id]).map(t => t.tag),
+      sources: this.all('SELECT source, folder FROM sources WHERE bookmark_id = ?', [id]),
+      aliases: this.all('SELECT norm, url, merged_at FROM aliases WHERE bookmark_id = ?', [id]),
+    };
+  }
+
+  // Merges otherIds into keepId: their browsers, folders, tags and notes move over, and their URLs
+  // become aliases of the kept bookmark. Nothing is deleted in the browsers.
+  // Returns an undo token for unmerge().
+  mergeDuplicates(keepId, otherIds) {
+    const keep = this.snapshot(keepId);
+    const others = otherIds.filter(id => id !== keepId).map(id => this.snapshot(id)).filter(Boolean);
+    if (!keep || !others.length) return null;
+    const now = Date.now();
+    this.run('BEGIN');
+    try {
+      const all = [keep, ...others];
+      const pick = (f) => all.map(b => b[f]).filter(v => v != null && v !== '');
+      const notes = [...new Set(pick('notes'))].join('\n\n');
+      const added = pick('added_at'), used = pick('last_used_at'), visits = pick('visit_count');
+      this.run('UPDATE bookmarks SET title = ?, category = ?, notes = ?, favorite = ?, added_at = ?, last_used_at = ?, visit_count = ? WHERE id = ?',
+        [keep.title || pick('title')[0] || '', keep.category || pick('category')[0] || null, notes,
+         all.some(b => b.favorite) ? 1 : 0, added.length ? Math.min(...added) : null,
+         used.length ? Math.max(...used) : null, visits.length ? Math.max(...visits) : null, keepId]);
+      for (const o of others) {
+        for (const t of o.tags) this.run('INSERT OR IGNORE INTO tags (bookmark_id, tag) VALUES (?, ?)', [keepId, t]);
+        for (const src of o.sources) this.run('INSERT OR IGNORE INTO sources (bookmark_id, source, folder) VALUES (?, ?, ?)', [keepId, src.source, src.folder]);
+        this.run('INSERT OR REPLACE INTO aliases (norm, bookmark_id, url, merged_at) VALUES (?, ?, ?, ?)', [o.norm, keepId, o.url, now]);
+        this.run('UPDATE aliases SET bookmark_id = ? WHERE bookmark_id = ?', [keepId, o.id]); // earlier merges come along
+        this.run('DELETE FROM bookmarks WHERE id = ?', [o.id]);
+        this.run('DELETE FROM tags WHERE bookmark_id = ?', [o.id]);
+        this.run('DELETE FROM sources WHERE bookmark_id = ?', [o.id]);
+      }
+      this.run('COMMIT');
+    } catch (e) {
+      this.run('ROLLBACK');
+      throw e;
+    }
+    this.save();
+    return { keep, others };
+  }
+
+  // Undoes mergeDuplicates() with its token: the kept bookmark gets its old values back and the
+  // merged ones return as separate bookmarks (with their old ids).
+  unmerge(token) {
+    if (!token || !token.keep) return;
+    const put = (b) => {
+      this.run('DELETE FROM bookmarks WHERE id = ?', [b.id]);
+      this.run(
+        'INSERT INTO bookmarks (id, url, norm, title, domain, folder, category, notes, favorite, added_at, last_used_at, ' +
+        'visit_count, imported_at, status, status_code, checked_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [b.id, b.url, b.norm, b.title, b.domain, b.folder, b.category, b.notes, b.favorite, b.added_at, b.last_used_at,
+         b.visit_count, b.imported_at, b.status, b.status_code, b.checked_at]);
+      this.run('DELETE FROM tags WHERE bookmark_id = ?', [b.id]);
+      this.run('DELETE FROM sources WHERE bookmark_id = ?', [b.id]);
+      for (const t of b.tags) this.run('INSERT OR IGNORE INTO tags (bookmark_id, tag) VALUES (?, ?)', [b.id, t]);
+      for (const src of b.sources) this.run('INSERT OR IGNORE INTO sources (bookmark_id, source, folder) VALUES (?, ?, ?)', [b.id, src.source, src.folder]);
+    };
+    this.run('BEGIN');
+    try {
+      const all = [token.keep, ...token.others];
+      for (const b of all) this.run('DELETE FROM aliases WHERE norm = ?', [b.norm]);
+      this.run('DELETE FROM aliases WHERE bookmark_id = ?', [token.keep.id]);
+      for (const b of all) {
+        put(b);
+        for (const a of b.aliases) this.run('INSERT OR REPLACE INTO aliases (norm, bookmark_id, url, merged_at) VALUES (?, ?, ?, ?)', [a.norm, b.id, a.url, a.merged_at]);
+      }
+      this.run('COMMIT');
+    } catch (e) {
+      this.run('ROLLBACK');
+      throw e;
+    }
+    this.save();
+  }
+
+  // "Not duplicates": this exact group isn't shown again (undo = true takes that back).
+  dismissDuplicates(signature, undo = false) {
+    if (undo) this.run('DELETE FROM dup_dismissed WHERE signature = ?', [signature]);
+    else this.run('INSERT OR IGNORE INTO dup_dismissed (signature) VALUES (?)', [signature]);
+    this.save();
   }
 
   update(id, patch) {
@@ -218,6 +336,12 @@ class Library {
           sources: this.all('SELECT source, folder FROM sources WHERE bookmark_id = ?', [id]),
         };
         this.run('INSERT OR REPLACE INTO removed (norm, removed_at, data) VALUES (?, ?, ?)', [row.norm, now, JSON.stringify(snapshot)]);
+        // URLs merged into it go too (so Sync removes them from the browsers), hidden in "Recently deleted".
+        for (const a of this.all('SELECT norm, url FROM aliases WHERE bookmark_id = ?', [id])) {
+          this.run('INSERT OR REPLACE INTO removed (norm, removed_at, data) VALUES (?, ?, ?)',
+            [a.norm, now, JSON.stringify({ url: a.url, alias_of: row.norm })]);
+        }
+        this.run('DELETE FROM aliases WHERE bookmark_id = ?', [id]);
       }
       this.run('DELETE FROM bookmarks WHERE id = ?', [id]);
       this.run('DELETE FROM tags WHERE bookmark_id = ?', [id]);
@@ -233,6 +357,7 @@ class Library {
     return this.all('SELECT rowid AS rid, norm, removed_at, data FROM removed ORDER BY removed_at DESC').map(r => {
       let d = null;
       try { d = r.data ? JSON.parse(r.data) : null; } catch {}
+      if (d && d.alias_of) return null; // a merged URL; it comes back with its bookmark
       // Entries deleted before 0.3 only stored the normalized URL (no scheme); rebuild a usable link.
       const url = d?.url || (/^[a-z][a-z0-9+.-]*:/i.test(r.norm) ? r.norm : 'https://' + r.norm);
       return {
@@ -244,7 +369,7 @@ class Library {
         status: d?.status || null, status_code: d?.status_code || null,
         tags: d?.tags || [], sources: d?.sources || [], hasSnapshot: !!d,
       };
-    });
+    }).filter(Boolean);
   }
 
   // Puts deleted bookmarks back (ids from listRemoved) and stops skipping them on import.
@@ -266,6 +391,14 @@ class Library {
           [r.url, r.norm, r.title, r.domain, r.folder, r.category, r.notes, r.favorite, r.added_at, r.last_used_at,
            r.visit_count, r.imported_at, r.status, r.status_code]);
         const newId = this.get('SELECT last_insert_rowid() AS id').id;
+        // Its merged URLs come back as aliases again.
+        for (const a of this.all('SELECT norm, data FROM removed WHERE data LIKE ?', ['%"alias_of"%'])) {
+          let d = null;
+          try { d = JSON.parse(a.data); } catch {}
+          if (!d || d.alias_of !== r.norm) continue;
+          this.run('DELETE FROM removed WHERE norm = ?', [a.norm]);
+          this.run('INSERT OR REPLACE INTO aliases (norm, bookmark_id, url, merged_at) VALUES (?, ?, ?, ?)', [a.norm, newId, d.url, Date.now()]);
+        }
         for (const t of r.tags) this.run('INSERT OR IGNORE INTO tags (bookmark_id, tag) VALUES (?, ?)', [newId, t]);
         for (const s of r.sources) this.run('INSERT OR IGNORE INTO sources (bookmark_id, source, folder) VALUES (?, ?, ?)', [newId, s.source, s.folder || '']);
       }
