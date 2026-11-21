@@ -242,3 +242,12 @@ body.resizing { cursor: col-resize; user-select: none; }
 .dup-other { padding: 4px 6px; border-radius: 6px; cursor: pointer; word-break: break-all; }
 .dup-other:hover { background: var(--hover); }
 .facts .aliases { word-break: break-all; font-weight: normal; }
+
+/* drag onto a category */
+#list li[draggable="true"] { -webkit-user-drag: element; }
+.nav-item.drop-target { background: var(--accent); color: var(--accent-text); }
+.nav-item.drop-target .n, .nav-item.drop-target .caret { color: inherit; }
+body.dragging-bookmarks .nav-item[data-type="category"],
+body.dragging-bookmarks .nav-item[data-value="uncategorized"],
+body.dragging-bookmarks .nav-item[data-value="favorites"] { outline: 1px dashed var(--border); outline-offset: -1px; }
+.drag-ghost { position: fixed; top: -100px; left: 0; padding: 4px 10px; border-radius: 6px; background: var(--accent); color: var(--accent-text); font-size: 13px; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

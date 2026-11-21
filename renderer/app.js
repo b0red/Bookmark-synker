@@ -235,7 +235,7 @@ function renderList() {
     const status = b.status === 'dead' || b.status === 'warn' || b.status === 'ok'
       ? `<span class="dot ${b.status}" title="${b.status}${b.status_code ? ' ' + b.status_code : ''}"></span>` : '';
     const on = state.checked.has(b.id);
-    return `<li data-id="${b.id}" class="${b.id === state.selectedId ? 'selected' : ''}${on ? ' checked' : ''}${grp}">
+    return `<li data-id="${b.id}"${b.deleted ? "" : " draggable=\"true\""} class="${b.id === state.selectedId ? 'selected' : ''}${on ? ' checked' : ''}${grp}">
       <input type="checkbox" class="pick" tabindex="-1" ${on ? 'checked' : ''} title="Select">
       ${favicon(b)}
       <div class="main-col"><div class="t">${b.favorite ? '<span class="star">★</span> ' : ''}${esc(b.title || b.url)}</div>
@@ -1176,4 +1176,72 @@ reload();
   });
   // Keep it within bounds when the window gets smaller.
   window.addEventListener('resize', () => { if (current() > max()) apply(max()); });
+})();
+
+// ---------- drag bookmarks onto a category ----------
+// Drag a row (or the ticked rows) onto a category in the sidebar. "Uncategorized" clears the
+// category and "Favorites" marks them as favorites.
+
+(function dragToCategory() {
+  const MIME = 'application/x-bookmark-ids';
+  let dragIds = null, hoverTimer = null;
+
+  $('#list').addEventListener('dragstart', (e) => {
+    const li = e.target.closest('li[draggable]');
+    if (!li) return;
+    const id = +li.dataset.id;
+    dragIds = state.checked.has(id) ? [...state.checked] : [id];
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData(MIME, JSON.stringify(dragIds));
+    // A small label instead of a picture of the whole row.
+    const ghost = document.createElement('div');
+    ghost.className = 'drag-ghost';
+    ghost.textContent = dragIds.length === 1 ? (state.items.find(b => b.id === id)?.title || '1 bookmark') : `${dragIds.length} bookmarks`;
+    document.body.append(ghost);
+    e.dataTransfer.setDragImage(ghost, 10, 10);
+    setTimeout(() => ghost.remove(), 0);
+    document.body.classList.add('dragging-bookmarks');
+  });
+  $('#list').addEventListener('dragend', () => {
+    dragIds = null;
+    document.body.classList.remove('dragging-bookmarks');
+    clearTarget();
+  });
+
+  const targetOf = (e) => e.target.closest('.nav-item[data-type="category"], .nav-item[data-value="uncategorized"], .nav-item[data-value="favorites"]');
+  function clearTarget() {
+    clearTimeout(hoverTimer);
+    for (const el of document.querySelectorAll('.nav-item.drop-target')) el.classList.remove('drop-target');
+  }
+
+  $('#sidebar').addEventListener('dragover', (e) => {
+    if (!dragIds) return;
+    const t = targetOf(e);
+    if (!t) { clearTarget(); return; }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (t.classList.contains('drop-target')) return;
+    clearTarget();
+    t.classList.add('drop-target');
+    // Hovering over a closed parent opens it, so you can drop deeper.
+    const caret = t.querySelector('[data-toggle]');
+    if (caret && caret.textContent === '▸') {
+      hoverTimer = setTimeout(() => { expanded.toggle(caret.dataset.toggle); renderSidebar(); }, 700);
+    }
+  });
+  $('#sidebar').addEventListener('dragleave', (e) => {
+    if (!e.relatedTarget || !$('#sidebar').contains(e.relatedTarget)) clearTarget();
+  });
+  $('#sidebar').addEventListener('drop', (e) => {
+    const t = targetOf(e);
+    clearTarget();
+    if (!t || !dragIds) return;
+    e.preventDefault();
+    const ids = dragIds;
+    const n = plural(ids.length);
+    if (t.dataset.value === 'favorites') return applyToIds(ids, { favorite: 1 }, `Marked ${n} as favorites.`);
+    if (t.dataset.value === 'uncategorized') return applyToIds(ids, { category: null }, `Made ${n} uncategorized.`);
+    const cat = t.dataset.value;
+    applyToIds(ids, { category: cat }, `Moved ${n} to “${cat}”.`);
+  });
 })();
