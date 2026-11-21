@@ -9,7 +9,8 @@
 // - every request needs the pairing code shown in the app
 // - the Host header must be 127.0.0.1/localhost (blocks DNS-rebinding tricks from web pages)
 // - only extension origins are accepted; web pages get no CORS access
-// - it only ever reveals the list of deleted (normalized) URLs, and accepts a short report back
+// - it reveals the list of deleted (normalized) URLs and the categories, accepts a short report back,
+//   and, for the page open in the browser, shows and saves its library entry (category, tags, notes)
 
 const http = require('http');
 const crypto = require('crypto');
@@ -34,9 +35,33 @@ function newToken() {
   return crypto.randomBytes(8).toString('hex').match(/.{4}/g).join('-');
 }
 
+// A web page address from the extension (http/https only, sensible length), or null.
+function cleanPageUrl(u) {
+  if (typeof u !== 'string' || u.length > 4096) return null;
+  try { const x = new URL(u); return x.protocol === 'http:' || x.protocol === 'https:' ? u : null; } catch { return null; }
+}
+
+// A "This page" save from the extension, limited to plain values of sensible size, or null.
+function cleanPage(b) {
+  if (!b || typeof b !== 'object') return null;
+  const url = cleanPageUrl(b.url);
+  if (!url) return null;
+  const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : undefined);
+  return {
+    url,
+    title: str(b.title, 1000),
+    category: str(b.category, 200),
+    notes: str(b.notes, 20000),
+    tags: Array.isArray(b.tags) ? b.tags.filter(t => typeof t === 'string').map(t => t.trim().slice(0, 60)).filter(Boolean).slice(0, 50) : undefined,
+    readLater: typeof b.readLater === 'boolean' ? b.readLater : undefined,
+  };
+}
+
 // getToken(): current pairing code; getDeletedNorms(): string[]; onReport(report, origin);
+// getPage(url) / savePage(page, browser) / getVocabulary(): the popup's "This page"; onChange(): after a save.
 // appVersion: shown to the extension. Returns { status(), close() }.
-function startBridge({ port = PORT, getToken, getDeletedNorms, getCategories = () => [], onReport, appVersion }) {
+function startBridge({ port = PORT, getToken, getDeletedNorms, getCategories = () => [], onReport, appVersion,
+  getPage = () => null, savePage = () => { throw new Error('not available'); }, getVocabulary = () => ({ categories: [], tags: [] }), onChange }) {
   const contacts = new Map(); // extension origin -> { browser, at }
   let listening = false, error = null;
 
@@ -73,7 +98,8 @@ function startBridge({ port = PORT, getToken, getDeletedNorms, getCategories = (
     if (req.method === 'GET' && url.pathname === '/v1/categories') {
       return send(200, { items: getCategories() });
     }
-    if (req.method === 'POST' && url.pathname === '/v1/report') {
+    // Reads a JSON body (at most MAX_BODY), then calls fn(body).
+    const readJson = (fn) => {
       let size = 0;
       const chunks = [];
       req.on('data', (c) => {
@@ -82,8 +108,32 @@ function startBridge({ port = PORT, getToken, getDeletedNorms, getCategories = (
       });
       req.on('end', () => {
         if (res.writableEnded) return;
-        let report;
-        try { report = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return send(400, { error: 'bad json' }); }
+        let body;
+        try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return send(400, { error: 'bad json' }); }
+        fn(body);
+      });
+    };
+
+    // "This page" in the extension popup: what the library knows about the open tab, and saving it.
+    if (req.method === 'GET' && url.pathname === '/v1/page') {
+      const pageUrl = cleanPageUrl(url.searchParams.get('url'));
+      if (!pageUrl) return send(400, { error: 'bad url' });
+      try { return send(200, { bookmark: getPage(pageUrl), ...getVocabulary() }); } catch (e) { return send(500, { error: e.message }); }
+    }
+    if (req.method === 'POST' && url.pathname === '/v1/page') {
+      return readJson((b) => {
+        const page = cleanPage(b);
+        if (!page) return send(400, { error: 'bad page' });
+        try {
+          const r = savePage(page, browser);
+          try { onChange && onChange({ browser, added: r.added }); } catch {}
+          send(200, { ok: true, added: r.added, bookmark: getPage(page.url) });
+        } catch (e) { send(500, { error: e.message }); }
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/v1/report') {
+      return readJson((report) => {
         const clean = {
           browser,
           removed: Math.max(0, Number(report.removed) || 0),
@@ -95,7 +145,6 @@ function startBridge({ port = PORT, getToken, getDeletedNorms, getCategories = (
         try { onReport && onReport(clean); } catch {}
         send(200, { ok: true });
       });
-      return;
     }
     send(404, { error: 'not found' });
   });

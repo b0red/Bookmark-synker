@@ -1,15 +1,16 @@
 {
   "name": "bookmark-syncer",
   "productName": "Bookmark syncer",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Import bookmarks from all your browsers into one organized library.",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
     "smoke": "node scripts/smoke.js",
-    "test": "node scripts/test-db.js && node scripts/test-sync.js && node scripts/test-extension.js && node scripts/test-ollama.js && node scripts/test-dups.js && node scripts/test-autoimport.js && node scripts/test-later.js && node scripts/test-safety.js && node scripts/test-library-file.js",
-    "dist": "electron-builder --win nsis"
+    "test": "node scripts/test-db.js && node scripts/test-sync.js && node scripts/test-extension.js && node scripts/test-ollama.js && node scripts/test-dups.js && node scripts/test-autoimport.js && node scripts/test-later.js && node scripts/test-safety.js && node scripts/test-library-file.js && node scripts/check-i18n.js",
+    "dist": "electron-builder --win nsis",
+    "check-i18n": "node scripts/check-i18n.js"
   },
   "license": "GPL-3.0-only",
   "type": "commonjs",

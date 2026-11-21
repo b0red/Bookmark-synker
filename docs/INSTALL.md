@@ -148,6 +148,10 @@ Firefox Developer Edition and Nightly can also install unsigned add-ons: set `xp
 3. Click **Delete them in this browser**. The app shows a message when it's done.
 4. Changed your mind? Click **Undo** in the extension to put the last run back in the same folders and positions. To keep them for good, also restore them under *Recently deleted* in the app.
 
+**The open page: category, tags and notes**
+
+Click the extension's icon on any web page. The top of the popup shows whether the page is in your library, with its category, tags, notes and *Read later*. Change them and click **Save changes**, or **Save to library** to add a page that isn't there yet (it gets the source *Added from Chrome*, *Added from Firefox* and so on). The app must be open. The extension reads the tab's address and title only when you click its icon (the browser's `activeTab` permission).
+
 **Sorting into folders by category**
 
 1. Categorize your bookmarks in the app.
@@ -161,7 +165,7 @@ Bookmarks are only moved, never deleted. Run it again after categorizing more; b
 
 - The app listens only on `127.0.0.1` (port 47615, this PC only) and only while it's open.
 - It answers only the extension, and only with the right pairing code. Web pages can't read your deleted-bookmarks list. Click **New code** in the app to disconnect every paired browser.
-- The extension never sends your bookmarks anywhere. It only reads the list of deleted URLs from the app and reports how many it removed.
+- The extension never sends your bookmarks anywhere. It reads the list of deleted URLs from the app and reports how many it removed; for the open page, it sends that page's address, title and what you typed to the app on this PC.
 - Chrome may show a "Disable developer mode extensions" banner at startup. Click the × to keep it.
 
 - Firefox: the extension talks to the app only after you click **Allow** in it.

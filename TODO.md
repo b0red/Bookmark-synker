@@ -21,11 +21,13 @@ Ranked by how much each helps the main job (one clean library that stays in step
 
 ## Not planned for now
 
-- Publishing the extension in the Chrome Web Store / Edge Add-ons / addons.mozilla.org listing (private project). Private Firefox signing is described in [docs/INSTALL.md](docs/INSTALL.md#firefox-keep-it-installed).
+- Publishing the extension in the Chrome Web Store / Edge Add-ons / addons.mozilla.org listing. Private Firefox signing is described in [docs/INSTALL.md](docs/INSTALL.md#firefox-keep-it-installed).
 
 ## Known issues
 
-- The installer isn't code-signed, so Windows SmartScreen asks for confirmation (*More info → Run anyway*). A signing certificate costs money; not planned for a private project.
+- The installer isn't code-signed, so Windows SmartScreen asks for confirmation (*More info → Run anyway*). A signing certificate costs money.
+- Some error messages from the browsers, Ollama or the Claude API that include their own details are shown in English in the Swedish app.
+- The full guide (README, INSTALL) and the privacy policy are in English only.
 - No automatic updates: run the new installer to update.
 
 - Sorting into folders (extension) moves bookmarks out of their old folders but leaves those folders in place, even when they end up empty. Undo puts everything back.

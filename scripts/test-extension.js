@@ -161,6 +161,62 @@ const layout = (tree) => core.flatten(tree).map(b => `${b.folder}\t${b.index}\t$
   await bridge.close();
   console.log('Bridge: pairing code, host and origin checks OK');
 
+  // ---------- 1b. "This page" (the popup's notes, tags and category) with a real library ----------
+  {
+    const { Library } = require('../src/db');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bmlib-page-test-'));
+    const lib = await Library.open(path.join(dir, 'library.sqlite'));
+    lib.importItems([{ url: 'https://example.com/known', title: 'Known page' }, { url: 'https://example.com/gone', title: 'Gone' }], 'Chrome · Default');
+    lib.update(lib.findByUrl('https://example.com/known').id, { category: 'Work', tags: ['a', 'b'], notes: 'hi' });
+    lib.remove([lib.findByUrl('https://example.com/gone').id]);
+    const changes = [];
+    const br = startBridge({ port: PORT, getToken: () => token, getDeletedNorms: () => lib.removedNorms(), appVersion: '9.9.9',
+      getPage: (u) => lib.findByUrl(u), getVocabulary: () => lib.vocabulary(),
+      savePage: (p, browser) => lib.savePage(p, `Added from ${browser}`), onChange: (c) => changes.push(c) });
+    await new Promise(r => setTimeout(r, 200));
+    const json = { ...ok, 'content-type': 'application/json' };
+    const get = (u) => request({ path: '/v1/page?url=' + encodeURIComponent(u), headers: ok });
+    const post = (b) => request({ method: 'POST', path: '/v1/page', headers: json, body: JSON.stringify(b) });
+
+    let r = await get('https://example.com/known/');
+    assert.strictEqual(r.status, 200);
+    assert.deepStrictEqual([r.body.bookmark.category, r.body.bookmark.tags, r.body.bookmark.notes], ['Work', ['a', 'b'], 'hi']);
+    assert.deepStrictEqual(r.body.categories, ['Work']);
+    assert.strictEqual((await get('https://example.com/new')).body.bookmark, null, 'unknown page');
+    assert.strictEqual((await get('javascript:alert(1)')).status, 400, 'only web pages');
+    assert.strictEqual((await request({ path: '/v1/page?url=https://example.com/known', headers: { ...ok, 'x-bookmark-syncer-token': '' } })).status, 401, 'needs the code');
+    assert.strictEqual((await request({ method: 'POST', path: '/v1/page', headers: { ...json, origin: 'https://evil.example' }, body: '{}' })).status, 403, 'web pages cannot save');
+
+    // Edit an existing one
+    r = await post({ url: 'https://example.com/known', title: 'Known page', category: 'Work / Docs', tags: ['B', 'c', 7], notes: 'updated', readLater: true });
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.body.added, false);
+    const known = lib.list().find(b => b.title === 'Known page');
+    assert.deepStrictEqual([known.category, known.tags, known.notes, !!known.read_later], ['Work / Docs', ['b', 'c'], 'updated', true]);
+
+    // Add a new one, and one that was deleted before (asked for explicitly, so it comes back)
+    r = await post({ url: 'https://example.com/new', title: 'New page', category: '', tags: ['x'], notes: '', readLater: false });
+    assert.strictEqual(r.body.added, true);
+    assert.strictEqual(r.body.bookmark.title, 'New page');
+    const added = lib.list().find(b => b.title === 'New page');
+    assert.deepStrictEqual([added.category, added.tags, added.sources[0].source], [null, ['x'], 'Added from Edge']);
+    r = await post({ url: 'https://example.com/gone', title: 'Gone', tags: [] });
+    assert.strictEqual(r.body.added, true);
+    assert.ok(!lib.removedNorms().includes('example.com/gone'), 'no longer on the deleted list');
+    assert.deepStrictEqual(changes.map(c => c.added), [false, true, true]);
+
+    // Bad input
+    assert.strictEqual((await post({ url: 'file:///C:/x' })).status, 400);
+    assert.strictEqual((await request({ method: 'POST', path: '/v1/page', headers: json, body: 'not json' })).status, 400);
+    r = await post({ url: 'https://example.com/long', title: 'x'.repeat(5000), tags: Array.from({ length: 80 }, (_, i) => 't' + i) });
+    const long = lib.findByUrl('https://example.com/long');
+    assert.strictEqual(long.title.length, 1000);
+    assert.strictEqual(long.tags.length, 50);
+    await br.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+    console.log('Bridge: "This page" view, edit, add, re-add after delete and input limits OK');
+  }
+
   // ---------- 2. extension logic on real bookmark trees ----------
   const SQL = await initSqlJs();
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bmlib-ext-test-'));

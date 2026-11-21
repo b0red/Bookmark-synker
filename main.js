@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, clipboard, nativeTheme } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { Library } = require('./src/db');
@@ -24,8 +24,48 @@ const DESKTOP_HOOKS = process.env.BMLIB_DESKTOP === '1' || (!process.env.BMLIB_S
 const dataDir = () => app.getPath('userData');
 const keyFile = () => path.join(dataDir(), 'anthropic-key.bin');
 
+// ---------- language ----------
+// 'en' or 'sv': the setting, or Windows' language when it's "Same as Windows". The dictionary is shared
+// with the window (renderer/lang/sv.js); main uses it for dialogs and the tray.
+const SV = require('./renderer/lang/sv.js');
+let LANG = 'en';
+function resolveLanguage() {
+  const set = loadSettings().language;
+  if (set === 'en' || set === 'sv') return set;
+  const sys = (app.getPreferredSystemLanguages?.()[0] || app.getLocale() || '').toLowerCase();
+  return sys.startsWith('sv') ? 'sv' : 'en';
+}
+function t(s, v) {
+  const text = LANG === 'sv' && Object.prototype.hasOwnProperty.call(SV, s) ? SV[s] : s;
+  return v ? text.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m)) : text;
+}
+const tn = (n, one, many, v) => t(n === 1 ? one : many, { n, ...v });
+// Error messages from the helper modules (src/) are English; these are translated on their way to the window.
+const ERROR_PATTERNS = [
+  [/^(.+) is running\. Close it completely \(check the system tray\) and try again\.$/, 'browser', '{browser} is running. Close it completely (check the system tray) and try again.'],
+  [/^Ollama doesn't have the model "(.+)" yet\. In a terminal, run: ollama pull .+$/, 'model', 'Ollama doesn\'t have the model "{model}" yet. In a terminal, run: ollama pull {model}'],
+  [/^Ollama doesn't have the model "(.+)" yet\. Run: ollama pull .+$/, 'model', 'Ollama doesn\'t have the model "{model}" yet. In a terminal, run: ollama pull {model}'],
+];
+function tErr(msg) {
+  if (typeof msg !== 'string' || LANG === 'en') return msg;
+  for (const [re, name, key] of ERROR_PATTERNS) {
+    const m = msg.match(re);
+    if (m) return t(key, { [name]: m[1] });
+  }
+  return t(msg);
+}
+const tErrors = (list) => (Array.isArray(list) ? list.map(r => (r && r.error ? { ...r, error: tErr(r.error) } : r)) : list);
+ipcMain.on('app:lang', (e) => { e.returnValue = LANG; });
+
 function send(channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+}
+
+// Light, dark, or follow Windows ('system'). The page's CSS follows this through prefers-color-scheme.
+const windowBackground = () => (nativeTheme.shouldUseDarkColors ? '#16181d' : '#f6f7f9');
+function applyTheme(theme) {
+  nativeTheme.themeSource = ['light', 'dark'].includes(theme) ? theme : 'system';
+  if (win && !win.isDestroyed()) win.setBackgroundColor(windowBackground());
 }
 
 function createWindow() {
@@ -34,7 +74,7 @@ function createWindow() {
     height: 900,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: '#16181d',
+    backgroundColor: windowBackground(),
     title: 'Bookmark syncer',
     icon: ICON,
     show: !(startHidden && DESKTOP_HOOKS),
@@ -57,7 +97,7 @@ function createWindow() {
     crashes.push(now);
     while (crashes.length && crashes[0] < now - 60000) crashes.shift();
     if (crashes.length <= 3 && !win.isDestroyed()) win.reload();
-    else dialog.showErrorBox('Bookmark syncer', `The window keeps crashing. Your library is saved. Details are in ${path.join(dataDir(), 'crash.log')}.`);
+    else dialog.showErrorBox('Bookmark syncer', t('The window keeps crashing. Your library is saved. Details are in {file}.', { file: path.join(dataDir(), 'crash.log') }));
   });
   // Windows is shutting down or signing out: really quit (hiding to the tray would hold up the shutdown).
   win.on('session-end', () => { quitting = true; });
@@ -68,8 +108,8 @@ function createWindow() {
     win.hide();
     if (!loadSettings().trayHintShown) {
       saveSettings({ trayHintShown: true });
-      tray.tray.displayBalloon({ iconType: 'info', title: 'Bookmark syncer is still running',
-        content: `It's in the tray. ${hotkeyStatus.active ? `Press ${hotkeyStatus.accelerator} to search your bookmarks. ` : ''}Right-click the icon to quit.` });
+      tray.tray.displayBalloon({ iconType: 'info', title: t('Bookmark syncer is still running'),
+        content: [t("It's in the tray."), hotkeyStatus.active ? t('Press {keys} to search your bookmarks.', { keys: hotkeyStatus.accelerator }) : '', t('Right-click the icon to quit.')].filter(Boolean).join(' ') });
     }
   });
 }
@@ -89,7 +129,7 @@ function quitApp() {
 
 function applyDesktop(s) {
   if (!DESKTOP_HOOKS) return;
-  hotkeyStatus = trayMod.applyHotkey({ enabled: s.hotkeyEnabled, accelerator: s.hotkey }, () => showWindow(true));
+  hotkeyStatus = trayMod.applyHotkey({ enabled: s.hotkeyEnabled, accelerator: s.hotkey }, () => showWindow(true), t);
   if (tray) tray.setHotkeyLabel(hotkeyStatus.active ? hotkeyStatus.accelerator : null);
 }
 
@@ -113,7 +153,7 @@ async function loadKey() {
 
 const settingsFile = () => path.join(dataDir(), 'settings.json');
 const DEFAULT_SETTINGS = { categorizer: 'rules', ollamaModel: 'qwen2.5:3b', importOnStart: true, watchBrowsers: true, readLaterNudge: true,
-  hotkeyEnabled: true, hotkey: trayMod.DEFAULT_HOTKEY, closeToTray: true, startWithWindows: false };
+  hotkeyEnabled: true, hotkey: trayMod.DEFAULT_HOTKEY, closeToTray: true, startWithWindows: false, autoLinkCheck: 'off', theme: 'system', language: 'auto' };
 
 function loadSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; } catch { return { ...DEFAULT_SETTINGS }; }
@@ -134,7 +174,7 @@ ipcMain.handle('import:sources', async (_e, sources) => {
     try {
       results.push({ label: s.label, ...importSource(s) });
     } catch (e) {
-      results.push({ label: s.label, error: /EBUSY|locked/i.test(e.message) ? 'File is locked. Close the browser and try again.' : e.message });
+      results.push({ label: s.label, error: /EBUSY|locked/i.test(e.message) ? t('File is locked. Close the browser and try again.') : e.message });
     }
   }
   return results;
@@ -142,7 +182,7 @@ ipcMain.handle('import:sources', async (_e, sources) => {
 
 ipcMain.handle('import:html', async () => {
   const r = await dialog.showOpenDialog(win, {
-    title: 'Import exported bookmarks',
+    title: t('Import exported bookmarks'),
     filters: [{ name: 'Bookmarks HTML', extensions: ['html', 'htm'] }],
     properties: ['openFile', 'multiSelections'],
   });
@@ -158,7 +198,7 @@ ipcMain.handle('import:html', async () => {
   });
 });
 
-ipcMain.handle('library:list', () => lib.list());
+ipcMain.handle('library:list', () => { updateDeadCount(); return lib.list(); });
 ipcMain.handle('bookmark:update', (_e, id, patch) => lib.update(id, patch));
 ipcMain.handle('bookmark:remove', (_e, ids) => lib.remove(ids));
 ipcMain.handle('app:info', () => ({ name: app.getName(), version: app.getVersion() }));
@@ -186,18 +226,18 @@ ipcMain.handle('deleted:restore', (_e, ids) => lib.restore(ids));
 ipcMain.handle('open:url', (_e, url) => openExternal(url));
 
 // Sync deletions to browsers: preview what would be removed, then remove it from the chosen profiles.
-ipcMain.handle('browsers:plan', () => browserSync.plan(lib.removedNorms(), lib.SQL));
-ipcMain.handle('browsers:apply', (_e, labels) => browserSync.apply(labels, lib.removedNorms(), lib.SQL));
+ipcMain.handle('browsers:plan', async () => tErrors(await browserSync.plan(lib.removedNorms(), lib.SQL)));
+ipcMain.handle('browsers:apply', async (_e, labels) => tErrors(await browserSync.apply(labels, lib.removedNorms(), lib.SQL)));
 ipcMain.handle('browsers:backups', () => browserSync.listBackups(lib.SQL));
 ipcMain.handle('browsers:restore', async (_e, label, file) => {
-  try { return await browserSync.restoreBackup(label, file, lib.SQL); } catch (e) { return { label, error: e.message }; }
+  try { return await browserSync.restoreBackup(label, file, lib.SQL); } catch (e) { return { label, error: tErr(e.message) }; }
 });
 ipcMain.handle('browsers:reveal', (_e, file) => { if (typeof file === 'string' && fs.existsSync(file)) shell.showItemInFolder(file); });
 
 ipcMain.handle('key:status', async () => ({ saved: !!(await loadKey()), env: !!process.env.ANTHROPIC_API_KEY }));
 ipcMain.handle('key:save', async (_e, key) => {
   if (!key) { try { fs.unlinkSync(keyFile()); } catch {} return true; }
-  if (!(await safeStorage.isAsyncEncryptionAvailable())) throw new Error('Windows encryption is unavailable; set ANTHROPIC_API_KEY instead.');
+  if (!(await safeStorage.isAsyncEncryptionAvailable())) throw new Error(t('Windows encryption is unavailable; set ANTHROPIC_API_KEY instead.'));
   fs.mkdirSync(dataDir(), { recursive: true });
   fs.writeFileSync(keyFile(), await safeStorage.encryptStringAsync(key.trim()));
   return true;
@@ -220,6 +260,14 @@ ipcMain.handle('settings:save', (_e, patch) => {
   if ('watchBrowsers' in safe && autoImport) { if (rest.watchBrowsers) autoImport.start(); else autoImport.stop(); }
   if ('hotkey' in safe || 'hotkeyEnabled' in safe) applyDesktop(rest);
   if ('startWithWindows' in safe && DESKTOP_HOOKS) trayMod.setStartWithWindows(rest.startWithWindows, __dirname);
+  if ('theme' in safe) applyTheme(rest.theme);
+  if ('language' in safe && resolveLanguage() !== LANG) {
+    LANG = resolveLanguage();
+    if (tray) tray.refresh();
+    applyDesktop(rest); // hotkey messages
+    if (win && !win.isDestroyed()) setTimeout(() => win.reload(), 50);
+  }
+  if ('autoLinkCheck' in safe && AUTO_CHECK_EVERY[rest.autoLinkCheck]) setTimeout(maybeAutoLinkCheck, 60 * 1000).unref();
   return { ...rest, hotkeyStatus };
 });
 
@@ -268,7 +316,7 @@ const jobs = { categorize: null, links: null };
 ipcMain.handle('job:cancel', (_e, kind) => { jobs[kind]?.abort(); return !!jobs[kind]; });
 
 ipcMain.handle('claude:categorize', async (_e, { ids }) => {
-  if (jobs.categorize) return { error: 'Already running.' };
+  if (jobs.categorize) return { error: t('Already running.') };
   const ctrl = (jobs.categorize = new AbortController());
   let doneSoFar = 0;
   let cpuFallback = false;
@@ -301,18 +349,18 @@ ipcMain.handle('claude:categorize', async (_e, { ids }) => {
     return { ok: true, count: bookmarks.length, cpuFallback };
   } catch (e) {
     if (ctrl.signal.aborted) return { cancelled: true, count: doneSoFar, cpuFallback };
-    return { error: claude.describeError(e), cpuFallback };
+    return { error: tErr(claude.describeError(e)), cpuFallback };
   } finally {
     jobs.categorize = null;
   }
 });
 
-ipcMain.handle('links:check', async (_e, { ids }) => {
-  if (jobs.links) return { error: 'Already running.' };
+async function runLinkCheck(ids) {
+  if (jobs.links) return { error: t('Already running.') };
   const ctrl = (jobs.links = new AbortController());
   try {
-    const wanted = new Set(ids);
-    const items = lib.list().filter(b => wanted.has(b.id));
+    const wanted = ids ? new Set(ids) : null;
+    const items = lib.list().filter(b => !wanted || wanted.has(b.id));
     let done = 0;
     await checkAll(items, (id, r) => {
       lib.setStatus(id, r.status, r.code);
@@ -320,15 +368,45 @@ ipcMain.handle('links:check', async (_e, { ids }) => {
       if (done % 10 === 0 || done === items.length) { lib.save(); send('progress', { kind: 'links', done, total: items.length }); }
     }, ctrl.signal);
     lib.save();
-    return ctrl.signal.aborted ? { cancelled: true, count: done, total: items.length } : { ok: true };
+    return ctrl.signal.aborted ? { cancelled: true, count: done, total: items.length } : { ok: true, count: items.length };
   } finally {
     jobs.links = null;
+    updateDeadCount();
   }
-});
+}
+ipcMain.handle('links:check', (_e, { ids }) => runLinkCheck(ids));
+
+// ---------- automatic link checks ----------
+// Off unless turned on in Settings. Runs while the app is open (also in the tray) when the last
+// automatic check is older than the chosen interval; new dead links are reported in the tray.
+
+const AUTO_CHECK_EVERY = { weekly: 7 * 86400000, monthly: 30 * 86400000 };
+const deadIds = () => new Set(lib.all("SELECT id FROM bookmarks WHERE status = 'dead'").map(r => r.id));
+
+function updateDeadCount() {
+  if (tray && lib) tray.setDeadCount(deadIds().size);
+}
+
+async function maybeAutoLinkCheck() {
+  const s = loadSettings();
+  const every = AUTO_CHECK_EVERY[s.autoLinkCheck];
+  if (!every || !lib || jobs.links || jobs.categorize) return;
+  if (Date.now() - (s.lastAutoLinkCheck || 0) < every) return;
+  const before = deadIds();
+  const r = await runLinkCheck(null);
+  if (!r.ok) { if (r.cancelled) send('auto-links', { cancelled: true }); return; } // tried again later
+  saveSettings({ lastAutoLinkCheck: Date.now() });
+  const fresh = [...deadIds()].filter(id => !before.has(id)).length;
+  send('auto-links', { checked: r.count, newDead: fresh, dead: deadIds().size });
+  if (fresh && tray) {
+    tray.tray.displayBalloon({ iconType: 'info', title: 'Bookmark syncer',
+      content: tn(fresh, 'The automatic link check found 1 new dead link. Open the app to see it.', 'The automatic link check found {n} new dead links. Open the app to see them.') });
+  }
+}
 
 ipcMain.handle('export:html', async (_e, { ids, groupBy }) => {
   const r = await dialog.showSaveDialog(win, {
-    title: 'Export bookmarks',
+    title: t('Export bookmarks'),
     defaultPath: 'bookmarks-library.html',
     filters: [{ name: 'Bookmarks HTML', extensions: ['html'] }],
   });
@@ -390,23 +468,24 @@ ipcMain.handle('library:backups', () => ({ folder: path.join(dataDir(), 'backups
 ipcMain.handle('library:openBackups', () => { fs.mkdirSync(path.join(dataDir(), 'backups'), { recursive: true }); return shell.openPath(path.join(dataDir(), 'backups')); });
 
 const countBookmarks = (l) => l.get('SELECT COUNT(*) AS n FROM bookmarks').n;
-const busy = () => (jobs.categorize || jobs.links ? 'Wait until auto-categorize or the link check is finished (or cancel it) first.' : null);
-const backupLabel = (b) => b.kind === 'daily' ? `the daily backup from ${b.date}`
-  : `the copy made ${new Date(b.at).toLocaleString()} (${b.kind === 'before-import' ? 'before an import' : 'before a restore'})`;
+const busy = () => (jobs.categorize || jobs.links ? t('Wait until auto-categorize or the link check is finished (or cancel it) first.') : null);
+const localTime = (ms) => new Date(ms).toLocaleString(LANG === 'sv' ? 'sv-SE' : undefined);
+const backupLabel = (b) => b.kind === 'daily' ? t('the daily backup from {date}', { date: b.date })
+  : t(b.kind === 'before-import' ? 'the copy made {when} (before an import)' : 'the copy made {when} (before a restore)', { when: localTime(b.at) });
 
 // Puts a backup back as the library. The current library is saved as a backup first, so it can be undone.
 ipcMain.handle('library:restoreBackup', async (_e, name) => {
   const b = safety.listLibraryBackups(dataDir()).find(x => x.name === name);
-  if (!b) return { error: 'That backup no longer exists.' };
+  if (!b) return { error: t('That backup no longer exists.') };
   if (busy()) return { error: busy() };
   let count;
-  try { count = countBookmarks(await Library.open(b.file)); } catch (e) { return { error: `This backup can't be read (${e.message}). Try an older one.` }; }
+  try { count = countBookmarks(await Library.open(b.file)); } catch (e) { return { error: t("This backup can't be read ({error}). Try an older one.", { error: e.message }) }; }
   const now = countBookmarks(lib);
   const r = await dialog.showMessageBox(win, {
-    type: 'question', buttons: ['Restore', 'Cancel'], defaultId: 1, cancelId: 1, title: 'Restore library',
-    message: `Restore your library from ${backupLabel(b)}?`,
-    detail: `The backup has ${count} bookmarks; your library has ${now} now. Changes made since then are replaced.\n\n` +
-      'Your current library is saved as a backup first, so you can switch back the same way. Bookmarks saved in your browsers since then come back with the next import.',
+    type: 'question', buttons: [t('Restore'), t('Cancel')], defaultId: 1, cancelId: 1, title: t('Restore library'),
+    message: t('Restore your library from {from}?', { from: backupLabel(b) }),
+    detail: t('The backup has {count} bookmarks; your library has {now} now. Changes made since then are replaced.', { count, now }) + '\n\n' +
+      t('Your current library is saved as a backup first, so you can switch back the same way. Bookmarks saved in your browsers since then come back with the next import.'),
   });
   if (r.response !== 0) return { cancelled: true };
   lib.save();
@@ -419,9 +498,9 @@ ipcMain.handle('library:restoreBackup', async (_e, name) => {
 // The whole library as one JSON file (for moving it to another PC, or keeping a copy elsewhere).
 ipcMain.handle('library:exportJson', async () => {
   const r = await dialog.showSaveDialog(win, {
-    title: 'Export the whole library',
+    title: t('Export the whole library'),
     defaultPath: `bookmark-syncer-library-${new Date().toISOString().slice(0, 10)}.json`,
-    filters: [{ name: 'Bookmark syncer library', extensions: ['json'] }],
+    filters: [{ name: t('Bookmark syncer library'), extensions: ['json'] }],
   });
   if (r.canceled) return null;
   const data = lib.exportData(app.getVersion());
@@ -432,25 +511,27 @@ ipcMain.handle('library:exportJson', async () => {
 ipcMain.handle('library:importJson', async () => {
   if (busy()) return { error: busy() };
   const r = await dialog.showOpenDialog(win, {
-    title: 'Import a library file',
-    filters: [{ name: 'Bookmark syncer library', extensions: ['json'] }],
+    title: t('Import a library file'),
+    filters: [{ name: t('Bookmark syncer library'), extensions: ['json'] }],
     properties: ['openFile'],
   });
   if (r.canceled) return null;
   const file = r.filePaths[0];
+  const name = path.basename(file);
   let data;
   try {
-    if (fs.statSync(file).size > 300 * 1024 * 1024) throw new Error('The file is too large.');
+    if (fs.statSync(file).size > 300 * 1024 * 1024) throw new Error(t('The file is too large.'));
     data = JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch (e) { return { error: `Couldn't read ${path.basename(file)}: ${e.message}` }; }
+  } catch (e) { return { error: t("Couldn't read {name}: {error}", { name, error: e.message }) }; }
   if (!data || data.format !== 'bookmark-syncer-library' || !Array.isArray(data.bookmarks)) {
-    return { error: `${path.basename(file)} isn't a Bookmark syncer library file. To import a browser's bookmarks.html, use Import → “Import a bookmarks.html file…”.` };
+    return { error: t("{name} isn't a Bookmark syncer library file. To import a browser's bookmarks.html, use Import → “Import a bookmarks.html file…”.", { name }) };
   }
-  const when = data.exportedAt ? new Date(data.exportedAt).toLocaleString() : 'an unknown date';
+  const when = data.exportedAt ? localTime(data.exportedAt) : t('an unknown date');
   const ok = await dialog.showMessageBox(win, {
-    type: 'question', buttons: ['Import', 'Cancel'], defaultId: 0, cancelId: 1, title: 'Import library',
-    message: `Import ${data.bookmarks.length} bookmarks from ${path.basename(file)}?`,
-    detail: `Exported ${when}. Nothing in your library is removed: bookmarks you already have keep their values and get the missing categories, tags, notes and browsers. Bookmarks you deleted here stay deleted.\n\nYour library is saved as a backup first (⚙ Settings → Library backups).`,
+    type: 'question', buttons: [t('Import'), t('Cancel')], defaultId: 0, cancelId: 1, title: t('Import library'),
+    message: t('Import {n} bookmarks from {name}?', { n: data.bookmarks.length, name }),
+    detail: t('Exported {when}. Nothing in your library is removed: bookmarks you already have keep their values and get the missing categories, tags, notes and browsers. Bookmarks you deleted here stay deleted.', { when }) + '\n\n' +
+      t('Your library is saved as a backup first (⚙ Settings → Library backups).'),
   });
   if (ok.response !== 0) return { cancelled: true };
   lib.save();
@@ -479,6 +560,8 @@ app.whenReady().then(async () => {
   migrateOldData();
   const opened = await safety.openLibrarySafely(Library, dataDir(), libraryFile());
   lib = opened.lib;
+  applyTheme(loadSettings().theme);
+  LANG = resolveLanguage();
   dailyBackup();
   setInterval(dailyBackup, 60 * 60 * 1000).unref();
   createWindow();
@@ -487,16 +570,22 @@ app.whenReady().then(async () => {
     safety.logError(dataDir(), 'library', `damaged library moved to ${r.damaged}: ${r.error}`);
     win.webContents.once('did-finish-load', () => dialog.showMessageBox(win, {
       type: 'warning', title: 'Bookmark syncer',
-      message: 'Your library file was damaged.',
-      detail: (r.from ? `It was replaced with the backup from ${r.from}. Changes after that day are missing; importing from your browsers brings back new bookmarks.`
-        : 'There was no backup, so the app started with an empty library. Import from your browsers to fill it again.') +
-        `\n\nThe damaged file is kept as ${path.basename(r.damaged)} in the data folder.`,
+      message: t('Your library file was damaged.'),
+      detail: (r.from ? t('It was replaced with the backup from {from}. Changes after that day are missing; importing from your browsers brings back new bookmarks.', { from: r.from })
+        : t('There was no backup, so the app started with an empty library. Import from your browsers to fill it again.')) +
+        '\n\n' + t('The damaged file is kept as {name} in the data folder.', { name: path.basename(r.damaged) }),
     }));
   }
   if (DESKTOP_HOOKS) {
     const s = loadSettings();
-    tray = trayMod.createTray({ icon: ICON, onOpen: () => showWindow(), onSearch: () => showWindow(true), onQuit: quitApp });
+    tray = trayMod.createTray({ icon: ICON, onOpen: () => showWindow(), onSearch: () => showWindow(true), onQuit: quitApp, t,
+      onShowDead: () => { showWindow(); send('show-view', 'dead'); } });
     applyDesktop(s);
+    updateDeadCount();
+  }
+  if (!process.env.BMLIB_SNAPSHOT) {
+    setTimeout(maybeAutoLinkCheck, 2 * 60 * 1000).unref();
+    setInterval(maybeAutoLinkCheck, 60 * 60 * 1000).unref();
   }
   win.webContents.once('did-finish-load', () => setTimeout(setupAutoImport, 1500));
   if (!process.env.BMLIB_NO_BRIDGE) {
@@ -506,6 +595,10 @@ app.whenReady().then(async () => {
       getCategories: () => lib.categoryMap(),
       appVersion: app.getVersion(),
       onReport: (r) => send('bridge-report', r),
+      getPage: (url) => lib.findByUrl(url),
+      getVocabulary: () => lib.vocabulary(),
+      savePage: (page, browser) => lib.savePage(page, `Added from ${browser}`),
+      onChange: (c) => send('bridge-page', c),
     });
   }
   if (process.env.BMLIB_SNAPSHOT) {

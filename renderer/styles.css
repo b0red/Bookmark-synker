@@ -273,3 +273,8 @@ input.hotkey:focus { outline: 2px solid var(--accent); }
 /* keyboard focus in the list */
 .list:focus { outline: none; }
 .list:focus-visible li.selected { box-shadow: inset 3px 0 0 var(--accent); }
+
+/* Appearance + language side by side in Settings */
+.settings-pair { display: flex; gap: 12px; }
+.settings-pair > div { flex: 1; min-width: 0; }
+.settings-pair select { width: 100%; }

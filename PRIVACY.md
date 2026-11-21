@@ -1,7 +1,7 @@
 # Privacy policy
 
 **Bookmark syncer** (the Windows app and its *Bookmark syncer helper* browser extension)
-Effective date: 21 November 2026
+Effective date: 21 November 2026 (updated for version 1.2.0: automatic link checks and the extension's open-page view)
 
 ## In short
 
@@ -40,7 +40,7 @@ Uninstalling the app keeps this folder, so your library survives a reinstall. To
 | Feature | What is contacted | What is sent |
 |---|---|---|
 | **Site icons** in the bookmark list | Each bookmarked website, to load its icon (`/favicon.ico`) | A normal web request, so that site sees your IP address, as if you visited it |
-| **Check links** (only when you click it) | Each bookmark's address, one request each | A normal web request with the user agent `BookmarkSyncer` |
+| **Check links** (when you click it, or every week or month if you turn on *Check links automatically* in Settings; off by default) | Each bookmark's address, one request each | A normal web request with the user agent `BookmarkSyncer` |
 | **Auto-categorize with Claude** (only if you choose Claude in Settings and add your own API key) | Anthropic's API (`api.anthropic.com`) | Each bookmark's title, URL and original folder name, for the bookmarks being categorized. [Anthropic's privacy policy](https://www.anthropic.com/legal/privacy) applies to that data |
 | **Opening links** (a bookmark, the Wayback Machine copy, help pages, the tip link) | Opens in your default web browser | Whatever your browser normally sends |
 
@@ -56,6 +56,7 @@ The *Bookmark syncer helper* extension:
 
 - **Uses the browser's `bookmarks` permission** to find the bookmarks you deleted in the app and remove them, or to sort them into category folders when you ask it to.
 - **Uses the `storage` permission** to remember the pairing code and how to undo its last change. Both stay in your browser.
+- **Uses the `activeTab` permission** to read the address and title of the tab you are on, only at the moment you click the extension's icon. It sends them to the app on your PC to show that page's category, tags and notes, and, if you click *Save*, stores the page and what you typed in your library.
 - **Talks only to the Bookmark syncer app on the same PC**, at `http://127.0.0.1:47615`.
   - The app accepts these connections only from your own computer and only with your pairing code.
   - Nothing is sent to the internet.

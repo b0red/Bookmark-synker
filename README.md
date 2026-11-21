@@ -31,10 +31,12 @@ Your browsers' own bookmarks are only **read**, except when you click **Sync to 
 | **Tidy categories** | Right-click a category → *Rename or merge…* (type an existing name to merge), *Remove category* or *Delete all*. All with Undo. |
 | **Sync to browsers** | Removes what you deleted here from the browsers' own bookmarks too. It shows a preview first, needs the browser closed, and backs up every file. **Restore from backup…** puts any of those files back. |
 | **Browser extension** | For Chrome, Edge, Brave, Vivaldi, Opera and Firefox: the *Bookmark syncer helper* deletes through the browser itself while it's open, so the browser's sync passes the deletions to all your devices. Preview, one click, Undo. See [docs/INSTALL.md](docs/INSTALL.md#7-the-browser-extension). |
+| **This page, from the browser** | Click the extension's icon on any page to see whether it's in your library, and set its category, tags, notes and Read later right there. **Save to library** adds it if it's new. |
 | **Categories as folders** | The extension can also **sort the browser's bookmarks into folders** by their category (*Other bookmarks → Bookmark syncer → Cooking → Baking*). It only moves them, shows a preview, and **Undo** puts each one back exactly where it was. |
+| **Light or dark, English or Swedish** | ⚙ Settings → *Appearance*: follow Windows, or pick light or dark, and the language (English or Svenska; by default the same as Windows). The extension follows the browser's language. |
 | **Resizable sidebar** | Drag the edge of the library pane to make it wider or narrower (double-click the edge to reset). The width is remembered. |
 | **Search** | Free text, or filters: `tag:python`, `cat:cooking`, `site:github.com`, `in:firefox`. <kbd>Ctrl</kbd>+<kbd>K</kbd> focuses search, and <kbd>Enter</kbd> opens the top hit. |
-| **Check links** | Finds dead pages (404, domain gone) and offers the Wayback Machine copy. |
+| **Check links** | Finds dead pages (404, domain gone) and offers the Wayback Machine copy. Can also run by itself every week or month (⚙ Settings → *Check links automatically*); the tray icon then shows how many dead links there are. |
 | **Cancel** | Auto-categorize and Check links can be stopped from the progress bar; everything finished so far is kept. |
 | **Rediscover** | Opens a random bookmark from the current view. |
 | **Export** | Saves the current view as `bookmarks.html`, grouped by category, which any browser can import. |
@@ -74,8 +76,8 @@ No account, no telemetry, no analytics: the developer receives nothing. Full det
 
 - **Built-in rules** and **Ollama**: nothing leaves your PC.
 - **Claude**: the title, URL and folder name of the bookmarks being categorized are sent to Anthropic's API.
-- **Check links**: the app requests each URL, the same as visiting it. Favicons are loaded from the sites themselves.
-- **Browser extension**: talks only to the app on `127.0.0.1` (this PC), using a pairing code. Web pages can't reach it, and your bookmarks aren't sent anywhere.
+- **Check links**: the app requests each URL, the same as visiting it, when you click it or, if you turn it on, every week or month. Favicons are loaded from the sites themselves.
+- **Browser extension**: talks only to the app on `127.0.0.1` (this PC), using a pairing code. Web pages can't reach it, and your bookmarks aren't sent anywhere. When you click its icon, it reads the open tab's address and title to show that page's entry in your library.
 
 ## Documentation
 
@@ -90,7 +92,8 @@ No account, no telemetry, no analytics: the developer receives nothing. Full det
 ```powershell
 npm test       # library tests, "sync to browsers" on COPIES of your browser files (the real ones aren't touched),
                # the extension bridge + logic on in-memory copies of your bookmark trees, duplicates,
-               # automatic import and Read later on throwaway libraries
+               # automatic import and Read later on throwaway libraries, and the Swedish translation check
+npm run check-i18n  # lists texts without a Swedish translation (renderer/lang/sv.js, extension/i18n.js)
 npm run smoke  # prints bookmark counts per browser profile
 npm run dist   # builds the Windows installer in dist\
 node scripts/make-demo.js  # remakes docs/screenshot.png from a made-up library

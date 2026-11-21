@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 (2026-11-21)
+
+- **Automatic link checks**: ⚙ Settings → *Check links automatically* (off, every week, every month). The check runs in the background while the app is open, also in the tray. The tray icon's tooltip and menu show how many dead links there are, and new ones are announced in a tray message. Off by default
+- **Light theme**: ⚙ Settings → *Appearance*: the same as Windows (default), light or dark
+- **Swedish**: the app, its dialogs, the tray and the extension are available in Swedish. ⚙ Settings → *Language*: the same as Windows (default), English or Svenska. The extension follows the browser's language
+- **The open page in the extension**: click the extension's icon on any page to see whether it's in your library and set its category, tags, notes and Read later; **Save to library** adds a new page. Needs the browser's `activeTab` permission, which reads the tab's address and title only when you click the icon. Reload the extension after updating
+
 ## 1.1.0 (2026-11-21)
 
 - **Restore a library backup from the app**: ⚙ Settings → *Library backups* lists the daily backups; **Restore…** puts one back. Your current library is saved first (and listed too), so you can always switch back

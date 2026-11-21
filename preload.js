@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
+  lang: ipcRenderer.sendSync('app:lang'), // 'en' or 'sv', fixed until the window reloads
   detectSources: () => ipcRenderer.invoke('sources:detect'),
   importSources: (sources) => ipcRenderer.invoke('import:sources', sources),
   importHtml: () => ipcRenderer.invoke('import:html'),
@@ -44,6 +45,9 @@ contextBridge.exposeInMainWorld('api', {
   onBridgeReport: (fn) => ipcRenderer.on('bridge-report', (_e, r) => fn(r)),
   onAutoImport: (fn) => ipcRenderer.on('auto-import', (_e, r) => fn(r)),
   onFocusSearch: (fn) => ipcRenderer.on('focus-search', () => fn()),
+  onAutoLinks: (fn) => ipcRenderer.on('auto-links', (_e, r) => fn(r)),
+  onBridgePage: (fn) => ipcRenderer.on('bridge-page', (_e, r) => fn(r)),
+  onShowView: (fn) => ipcRenderer.on('show-view', (_e, v) => fn(v)),
   cancelJob: (kind) => ipcRenderer.invoke('job:cancel', kind),
   checkLinks: (ids) => ipcRenderer.invoke('links:check', { ids }),
   exportHtml: (ids, groupBy) => ipcRenderer.invoke('export:html', { ids, groupBy }),

@@ -11,8 +11,8 @@ const DAY = 86400000;
     window.api.logError(where, (err && err.stack) || msg);
     if (Date.now() - last < 5000) return; // don't flood
     last = Date.now();
-    const t = document.getElementById('toast');
-    if (t) { t.textContent = `Something went wrong: ${msg}. Details are in crash.log in the data folder.`; t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 8000); }
+    const el = document.getElementById('toast');
+    if (el) { el.textContent = t('Something went wrong: {msg}. Details are in crash.log in the data folder.', { msg }); el.classList.remove('hidden'); setTimeout(() => el.classList.add('hidden'), 8000); }
   };
   window.addEventListener('error', (e) => report('error', e.error || e.message));
   window.addEventListener('unhandledrejection', (e) => report('promise', e.reason));
@@ -55,7 +55,7 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function fmtDate(ms) {
-  return ms ? new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+  return ms ? new Date(ms).toLocaleDateString(LOCALE, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 }
 function hue(s) {
   let h = 0;
@@ -140,7 +140,8 @@ function computeVisible() {
 
 function navItem(type, value, name, n) {
   const active = state.view.type === type && state.view.value === value ? ' active' : '';
-  return `<div class="nav-item${active}" data-type="${type}" data-value="${esc(value)}"><span class="name">${esc(name)}</span><span class="n">${n}</span></div>`;
+  const shown = type === 'smart' ? t(name) : name; // smart view names are translated; categories etc. are your own
+  return `<div class="nav-item${active}" data-type="${type}" data-value="${esc(value)}"><span class="name">${esc(shown)}</span><span class="n">${n}</span></div>`;
 }
 
 // ---------- category tree ----------
@@ -186,7 +187,7 @@ function renderCatNodes(nodes, depth) {
     const kids = n.children.length > 0;
     const open = kids && (expanded.has(n.path) || (state.view.type === 'category' && state.view.value.startsWith(n.path + CAT_SEP)));
     const active = state.view.type === 'category' && state.view.value === n.path ? ' active' : '';
-    const caret = kids ? `<span class="caret" data-toggle="${esc(n.path)}" title="${open ? 'Collapse' : 'Expand'}">${open ? '▾' : '▸'}</span>` : '<span class="caret"></span>';
+    const caret = kids ? `<span class="caret" data-toggle="${esc(n.path)}" title="${open ? t('Collapse') : t('Expand')}">${open ? '▾' : '▸'}</span>` : '<span class="caret"></span>';
     html += `<div class="nav-item cat-node${active}" data-type="category" data-value="${esc(n.path)}" style="--depth:${depth}" title="${esc(n.path)}">${caret}<span class="name">${esc(n.name)}</span><span class="n">${n.total}</span></div>`;
     if (open) html += renderCatNodes(n.children, depth + 1);
   }
@@ -195,27 +196,27 @@ function renderCatNodes(nodes, depth) {
 
 function renderSidebar() {
   const items = state.items;
-  let html = '<h3>Library</h3>';
+  let html = `<h3>${t('Library')}</h3>`;
   for (const s of SMART) {
     const n = s.id === 'deleted' ? state.deleted.length : items.filter(s.test).length;
     if (n || ['all', 'favorites', 'later', 'uncategorized'].includes(s.id)) html += navItem('smart', s.id, s.name, n);
   }
   const tree = categoryTree(items);
   if (tree.length) {
-    html += '<h3>Categories</h3>';
+    html += `<h3>${t('Categories')}</h3>`;
     html += renderCatNodes(tree, 0);
   }
   const srcs = countBy(items, b => [...new Set(b.sources.map(s => s.source))]).sort((a, b) => b[1] - a[1]);
   if (srcs.length) {
-    html += '<h3>Sources</h3>';
+    html += `<h3>${t('Sources')}</h3>`;
     for (const [s, n] of srcs) html += navItem('source', s, s, n);
   }
   const tags = countBy(items, b => b.tags).sort((a, b) => b[1] - a[1]).slice(0, 40);
   if (tags.length) {
-    html += '<h3>Top tags</h3><div class="tagcloud">';
-    for (const [t, n] of tags.sort((a, b) => a[0].localeCompare(b[0]))) {
-      const active = state.view.type === 'tag' && state.view.value === t ? ' cat' : '';
-      html += `<span class="chip${active}" data-type="tag" data-value="${esc(t)}" title="${n}">${esc(t)}</span>`;
+    html += `<h3>${t('Top tags')}</h3><div class="tagcloud">`;
+    for (const [tag, n] of tags.sort((a, b) => a[0].localeCompare(b[0]))) {
+      const active = state.view.type === 'tag' && state.view.value === tag ? ' cat' : '';
+      html += `<span class="chip${active}" data-type="tag" data-value="${esc(tag)}" title="${n}">${esc(tag)}</span>`;
     }
     html += '</div>';
   }
@@ -224,8 +225,8 @@ function renderSidebar() {
 
 function viewName() {
   const v = state.view;
-  if (v.type === 'smart') return SMART.find(s => s.id === v.value).name;
-  if (v.type === 'tag') return `Tag: ${v.value}`;
+  if (v.type === 'smart') return t(SMART.find(s => s.id === v.value).name);
+  if (v.type === 'tag') return t('Tag: {tag}', { tag: v.value });
   return v.value;
 }
 
@@ -236,11 +237,16 @@ function favicon(b) {
   return `<span class="fav" style="background:${bg}">${img || letter}</span>`;
 }
 
+// Translated once (used in every row).
+const STATUS_TEXT = { ok: t('Working link'), dead: t('Dead link'), warn: t('Problem') };
+const SELECT_TEXT = t('Select');
+const LATER_CHIP = t('later');
+
 function renderList() {
   computeVisible();
   $('#view-title').textContent = viewName();
   $('#sort').classList.toggle('hidden', isDeletedView()); // deleted view is always newest first
-  $('#view-count').textContent = `${state.visible.length} bookmark${state.visible.length === 1 ? '' : 's'}`;
+  $('#view-count').textContent = plural(state.visible.length);
   $('#empty').classList.toggle('hidden', state.items.length > 0);
 
   // Only what's visible can stay selected, so "Delete selected" never hits hidden rows.
@@ -253,14 +259,14 @@ function renderList() {
     let grp = '';
     if (dupView) { if (b.dup !== lastGroup) { alt = !alt; grp = ' grp-start'; lastGroup = b.dup; } grp += alt ? ' grp-alt' : ''; }
     const status = b.status === 'dead' || b.status === 'warn' || b.status === 'ok'
-      ? `<span class="dot ${b.status}" title="${b.status}${b.status_code ? ' ' + b.status_code : ''}"></span>` : '';
+      ? `<span class="dot ${b.status}" title="${STATUS_TEXT[b.status]}${b.status_code ? ' ' + b.status_code : ''}"></span>` : '';
     const on = state.checked.has(b.id);
     return `<li data-id="${b.id}"${b.deleted ? "" : " draggable=\"true\""} class="${b.id === state.selectedId ? 'selected' : ''}${on ? ' checked' : ''}${grp}">
-      <input type="checkbox" class="pick" tabindex="-1" ${on ? 'checked' : ''} title="Select">
+      <input type="checkbox" class="pick" tabindex="-1" ${on ? 'checked' : ''} title="${SELECT_TEXT}">
       ${favicon(b)}
       <div class="main-col"><div class="t">${b.favorite ? '<span class="star">★</span> ' : ''}${esc(b.title || b.url)}</div>
       <div class="u">${dupView ? esc(b.url) : esc(b.domain) + (b.folder ? ' · ' + esc(b.folder) : '')}</div></div>
-      <div class="meta">${b.deleted ? `<span class="muted small">deleted ${fmtDate(b.removed_at)}</span>` : ""}${b.read_later && !b.deleted ? `<span class="chip later${openedSinceQueued(b) ? ' opened' : ''}" title="In Read later since ${fmtDate(b.read_later)}${openedSinceQueued(b) ? ' (opened)' : ''}">later</span>` : ''}${b.category ? `<span class="chip cat">${esc(b.category)}</span>` : ''}${b.deleted ? "" : status}</div>
+      <div class="meta">${b.deleted ? `<span class="muted small">${t('deleted {date}', { date: fmtDate(b.removed_at) })}</span>` : ""}${b.read_later && !b.deleted ? `<span class="chip later${openedSinceQueued(b) ? ' opened' : ''}" title="${t(openedSinceQueued(b) ? 'In Read later since {date} (opened)' : 'In Read later since {date}', { date: fmtDate(b.read_later) })}">${LATER_CHIP}</span>` : ''}${b.category ? `<span class="chip cat">${esc(b.category)}</span>` : ''}${b.deleted ? "" : status}</div>
     </li>`;
   }).join('');
   $('#list').innerHTML = html;
@@ -277,20 +283,20 @@ function renderList() {
 
 function renderDeletedDetail(el, b) {
   el.innerHTML = `
-    <button class="close icon" id="d-close" title="Close">✕</button>
+    <button class="close icon" id="d-close" title="${t('Close')}">✕</button>
     <h3 class="d-title">${esc(b.title || b.url)}</h3>
     <div class="url"><a href="#" id="d-url">${esc(b.url)}</a></div>
     <div class="btns">
-      <button class="primary" id="d-restore">Restore</button>
-      <button id="d-open">Open</button>
+      <button class="primary" id="d-restore">${t('Restore')}</button>
+      <button id="d-open">${t('Open')}</button>
     </div>
     <div class="facts">
-      <span>Deleted</span><b>${fmtDate(b.removed_at)}</b>
-      <span>Category</span><b>${esc(b.category || '—')}</b>
-      <span>Tags</span><b>${esc(b.tags.join(', ') || '—')}</b>
-      <span>Saved in</span><b>${[...new Set(b.sources.map(s => s.source))].map(esc).join('<br>') || '—'}</b>
+      <span>${t('Deleted')}</span><b>${fmtDate(b.removed_at)}</b>
+      <span>${t('Category')}</span><b>${esc(b.category || '—')}</b>
+      <span>${t('Tags')}</span><b>${esc(b.tags.join(', ') || '—')}</b>
+      <span>${t('Saved in')}</span><b>${[...new Set(b.sources.map(s => s.source))].map(esc).join('<br>') || '—'}</b>
     </div>
-    ${b.hasSnapshot ? '' : '<p class="muted small">Deleted before details were saved. Restoring brings back the link; import again to fill in the title and folders.</p>'}`;
+    ${b.hasSnapshot ? '' : `<p class="muted small">${t('Deleted before details were saved. Restoring brings back the link; import again to fill in the title and folders.')}</p>`}`;
   $('#d-close').onclick = () => { state.selectedId = null; renderList(); renderDetail(); };
   $('#d-open').onclick = $('#d-url').onclick = (e) => { e.preventDefault(); window.api.open(b.url); };
   $('#d-restore').onclick = () => restoreBookmarks([b.id]);
@@ -304,30 +310,30 @@ function renderDetail() {
   if (b.deleted) return renderDeletedDetail(el, b);
   const cats = [...new Set(state.items.map(x => x.category).filter(Boolean))].sort();
   const browsers = [...new Set(b.sources.map(s => s.source))];
-  const statusText = { ok: 'Working', dead: 'Dead', warn: 'Problem', skipped: 'Not a web link' }[b.status] || 'Not checked';
+  const statusText = t({ ok: 'Working', dead: 'Dead', warn: 'Problem', skipped: 'Not a web link' }[b.status] || 'Not checked');
   el.innerHTML = `
-    <button class="close icon" id="d-close" title="Close">✕</button>
-    <label>Title</label><input id="d-title" value="${esc(b.title)}">
+    <button class="close icon" id="d-close" title="${t('Close')}">✕</button>
+    <label>${t('Title')}</label><input id="d-title" value="${esc(b.title)}">
     <div class="url"><a href="#" id="d-url">${esc(b.url)}</a></div>
     <div class="btns">
-      <button class="primary" id="d-open">Open</button>
-      <button id="d-fav">${b.favorite ? '★ Unfavorite' : '☆ Favorite'}</button>
-      <button id="d-later" title="${b.read_later ? 'Take it out of Read later' : 'Put it in Read later'}">${b.read_later ? '✓ Done reading' : 'Read later'}</button>
+      <button class="primary" id="d-open">${t('Open')}</button>
+      <button id="d-fav">${b.favorite ? t('★ Unfavorite') : t('☆ Favorite')}</button>
+      <button id="d-later" title="${b.read_later ? t('Take it out of Read later') : t('Put it in Read later')}">${b.read_later ? t('✓ Done reading') : t('Read later')}</button>
       ${b.status === 'dead' || b.status === 'warn' ? '<button id="d-wayback">Wayback Machine</button>' : ''}
-      <button class="danger" id="d-remove">Remove</button>
+      <button class="danger" id="d-remove">${t('Remove')}</button>
     </div>
-    <label>Category</label><input id="d-cat" list="cat-list" value="${esc(b.category || '')}" placeholder="Uncategorized">
+    <label>${t('Category')}</label><input id="d-cat" list="cat-list" value="${esc(b.category || '')}" placeholder="${t('Uncategorized')}">
     <datalist id="cat-list">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
-    <label>Tags (comma separated)</label><input id="d-tags" value="${esc(b.tags.join(', '))}">
-    <label>Notes</label><textarea id="d-notes" placeholder="Why did you save this?">${esc(b.notes)}</textarea>
+    <label>${t('Tags (comma separated)')}</label><input id="d-tags" value="${esc(b.tags.join(', '))}">
+    <label>${t('Notes')}</label><textarea id="d-notes" placeholder="${t('Why did you save this?')}">${esc(b.notes)}</textarea>
     <div class="facts">
-      <span>Added</span><b>${fmtDate(b.added_at)}</b>
-      <span>Last opened</span><b>${fmtDate(Math.max(b.last_used_at || 0, b.opened_at || 0) || null)}${b.visit_count ? ` · ${b.visit_count} visits` : ''}</b>
-      ${b.read_later ? `<span>Read later</span><b>since ${fmtDate(b.read_later)}${openedSinceQueued(b) ? ' · opened' : ' · not opened yet'}</b>` : ''}
-      <span>Link</span><b>${statusText}${b.status_code ? ` (${b.status_code})` : ''}${b.checked_at ? ` · ${fmtDate(b.checked_at)}` : ''}</b>
-      <span>Saved in</span><b>${browsers.map(esc).join('<br>')}</b>
-      <span>Folders</span><b>${[...new Set(b.sources.map(s => s.folder).filter(Boolean))].map(esc).join('<br>') || '—'}</b>
-      ${b.aliases.length ? `<span>Also saved as</span><b class="aliases">${b.aliases.map(esc).join('<br>')}</b>` : ''}
+      <span>${t('Added')}</span><b>${fmtDate(b.added_at)}</b>
+      <span>${t('Last opened')}</span><b>${fmtDate(Math.max(b.last_used_at || 0, b.opened_at || 0) || null)}${b.visit_count ? ' · ' + tn(b.visit_count, '1 visit', '{n} visits') : ''}</b>
+      ${b.read_later ? `<span>${t('Read later')}</span><b>${t(openedSinceQueued(b) ? 'since {date} · opened' : 'since {date} · not opened yet', { date: fmtDate(b.read_later) })}</b>` : ''}
+      <span>${t('Link')}</span><b>${statusText}${b.status_code ? ` (${b.status_code})` : ''}${b.checked_at ? ` · ${fmtDate(b.checked_at)}` : ''}</b>
+      <span>${t('Saved in')}</span><b>${browsers.map(esc).join('<br>')}</b>
+      <span>${t('Folders')}</span><b>${[...new Set(b.sources.map(s => s.folder).filter(Boolean))].map(esc).join('<br>') || '—'}</b>
+      ${b.aliases.length ? `<span>${t('Also saved as')}</span><b class="aliases">${b.aliases.map(esc).join('<br>')}</b>` : ''}
     </div>
     ${dupSection(b)}`;
   wireDupSection(b);
@@ -353,12 +359,12 @@ function dupSection(b) {
   const others = dupMembers(b).filter(x => x.id !== b.id);
   if (!others.length) return '';
   return `<div class="dup-box">
-    <div class="dup-head">Possibly the same page (${others.length}):</div>
-    ${others.map(o => `<div class="dup-other" data-id="${o.id}" title="Show it">
+    <div class="dup-head">${t('Possibly the same page ({n}):', { n: others.length })}</div>
+    ${others.map(o => `<div class="dup-other" data-id="${o.id}" title="${t('Show it')}">
       <div>${esc(o.title || o.url)}</div><div class="muted small">${esc(o.url)}</div></div>`).join('')}
     <div class="btns">
-      <button class="primary" id="d-dup-keep" title="The others' browsers, folders, tags and notes move to this one. Nothing is deleted in your browsers.">Keep this one, merge the others</button>
-      <button id="d-dup-no">Not duplicates</button>
+      <button class="primary" id="d-dup-keep" title="${t("The others' browsers, folders, tags and notes move to this one. Nothing is deleted in your browsers.")}">${t('Keep this one, merge the others')}</button>
+      <button id="d-dup-no">${t('Not duplicates')}</button>
     </div>
   </div>`;
 }
@@ -372,26 +378,26 @@ function wireDupSection(b) {
     const others = dupMembers(b).filter(x => x.id !== b.id);
     const tokens = await window.api.mergeDuplicates(b.id, others.map(o => o.id));
     await reload();
-    toast(`Merged ${others.length + 1} into one bookmark. The other URLs are kept as “Also saved as”.`, 8000,
-      { label: 'Undo', fn: async () => { await window.api.unmergeDuplicates(tokens); await reload(); toast('Undone.'); } });
+    toast(t('Merged {n} into one bookmark. The other URLs are kept as “Also saved as”.', { n: others.length + 1 }), 8000,
+      { label: t('Undo'), fn: async () => { await window.api.unmergeDuplicates(tokens); await reload(); toast(t('Undone.')); } });
   };
   $('#d-dup-no').onclick = async () => {
     const sig = b.dup_signature;
     await window.api.dismissDuplicates(sig);
     await reload();
-    toast('Marked as not duplicates.', 6000,
-      { label: 'Undo', fn: async () => { await window.api.dismissDuplicates(sig, true); await reload(); } });
+    toast(t('Marked as not duplicates.'), 6000,
+      { label: t('Undo'), fn: async () => { await window.api.dismissDuplicates(sig, true); await reload(); } });
   };
 }
 
 async function mergeAllDuplicates() {
   const groups = new Set(state.items.filter(b => b.dup).map(b => b.dup)).size;
   if (!groups) return;
-  if (!confirm(`Merge all ${groups} groups of possible duplicates?\n\nIn each group the bookmark you use and organized most is kept; the others' browsers, folders, tags and notes move to it. Nothing is deleted in your browsers.\n\nTip: check the groups first; there's an Undo afterwards.`)) return;
+  if (!confirm(t("Merge all {n} groups of possible duplicates?\n\nIn each group the bookmark you use and organized most is kept; the others' browsers, folders, tags and notes move to it. Nothing is deleted in your browsers.\n\nTip: check the groups first; there's an Undo afterwards.", { n: groups }))) return;
   const tokens = await window.api.mergeAllDuplicates();
   await reload();
-  toast(`Merged ${tokens.length} groups.`, 8000,
-    { label: 'Undo', fn: async () => { await window.api.unmergeDuplicates(tokens); await reload(); toast('Undone.'); } });
+  toast(tn(tokens.length, 'Merged 1 group.', 'Merged {n} groups.'), 8000,
+    { label: t('Undo'), fn: async () => { await window.api.unmergeDuplicates(tokens); await reload(); toast(t('Undone.')); } });
 }
 
 function renderAll() { renderSidebar(); renderList(); renderDetail(); }
@@ -408,7 +414,7 @@ async function reload() {
 // `kind` ('categorize' | 'links') is the job the Cancel button stops.
 function showProgress(label, done, total, kind) {
   const p = $('#progress');
-  if (kind && p.dataset.kind !== kind) { p.dataset.kind = kind; $('#progress-cancel').disabled = false; $('#progress-cancel').textContent = 'Cancel'; }
+  if (kind && p.dataset.kind !== kind) { p.dataset.kind = kind; $('#progress-cancel').disabled = false; $('#progress-cancel').textContent = t('Cancel'); }
   if (p.dataset.stopping) return;
   p.classList.remove('hidden');
   p.querySelector('.bar').style.width = total ? `${(100 * done) / total}%` : '0';
@@ -422,7 +428,7 @@ function hideProgress() {
 }
 
 window.api.onProgress(async (p) => {
-  showProgress(p.kind === 'categorize' ? 'Categorizing…' : 'Checking links…', p.done, p.total, p.kind);
+  showProgress(p.kind === 'categorize' ? t('Categorizing…') : t('Checking links…'), p.done, p.total, p.kind);
   await reload();
 });
 
@@ -431,7 +437,7 @@ $('#progress-cancel').onclick = () => {
   if (!p.dataset.kind) return;
   p.dataset.stopping = '1';
   $('#progress-cancel').disabled = true;
-  p.querySelector('.label').textContent = 'Stopping…';
+  p.querySelector('.label').textContent = t('Stopping…');
   window.api.cancelJob(p.dataset.kind);
 };
 
@@ -444,8 +450,8 @@ async function openImport() {
   const imported = new Set(state.items.flatMap(b => b.sources.map(s => s.source)));
   $('#import-sources').innerHTML = sources.length
     ? sources.map((s, i) => `<label><input type="checkbox" data-i="${i}" ${imported.has(s.label) ? '' : 'checked'}>
-        <div><div>${esc(s.label)}${imported.has(s.label) ? ' <span class="muted small">(imported before)</span>' : ''}</div><div class="p">${esc(s.path)}</div></div></label>`).join('')
-    : '<p class="muted">No browser profiles found. Use “Import a bookmarks.html file…” instead.</p>';
+        <div><div>${esc(s.label)}${imported.has(s.label) ? ` <span class="muted small">${t('(imported before)')}</span>` : ''}</div><div class="p">${esc(s.path)}</div></div></label>`).join('')
+    : `<p class="muted">${t('No browser profiles found. Use “Import a bookmarks.html file…” instead.')}</p>`;
   dlg.sources = sources;
   dlg.showModal();
 }
@@ -453,11 +459,11 @@ async function openImport() {
 function showImportResults(results) {
   $('#import-result').innerHTML = results.map(r => r.error
     ? `<div class="err">${esc(r.label)}: ${esc(r.error)}</div>`
-    : `<div><b>${esc(r.label)}</b>: ${r.found} found · <b>${r.added} new</b> · ${r.merged} were already in the library (merged)` +
-      (r.skipped ? ` · ${r.skipped} skipped because you deleted them earlier` : '') +
-      (r.added + r.merged ? ` · <a href="#" data-source="${esc(r.label)}">show them</a>` : '') + '</div>').join('') +
+    : `<div><b>${esc(r.label)}</b>: ${t('{found} found · <b>{added} new</b> · {merged} were already in the library (merged)', r)}` +
+      (r.skipped ? ' · ' + t('{n} skipped because you deleted them earlier', { n: r.skipped }) : '') +
+      (r.added + r.merged ? ` · <a href="#" data-source="${esc(r.label)}">${t('show them')}</a>` : '') + '</div>').join('') +
     (results.some(r => !r.error && r.found && !r.added)
-      ? '<div class="muted small">Nothing new usually means these bookmarks were already imported from another browser. They are merged, and this source is added to each one.</div>' : '');
+      ? `<div class="muted small">${t('Nothing new usually means these bookmarks were already imported from another browser. They are merged, and this source is added to each one.')}</div>` : '');
 }
 
 $('#import-go').onclick = async () => {
@@ -492,29 +498,29 @@ $('#import-result').addEventListener('click', (e) => {
 // ---------- sync deletions to browsers ----------
 
 async function loadSyncPlan() {
-  $('#sync-sources').innerHTML = '<p class="muted">Looking through your browsers…</p>';
+  $('#sync-sources').innerHTML = `<p class="muted">${t('Looking through your browsers…')}</p>`;
   $('#sync-go').disabled = true;
   const plan = await window.api.browserSyncPlan();
   const dlg = $('#dlg-sync');
   dlg.plan = plan;
   const any = plan.some(p => p.matches.length);
   $('#sync-go').disabled = !any;
-  if (!plan.length) { $('#sync-sources').innerHTML = '<p class="muted">No browser profiles found.</p>'; return; }
-  $('#sync-sources').innerHTML = (any ? '' : '<p class="muted">Nothing to do: none of the bookmarks you deleted are left in your browsers.</p>') +
+  if (!plan.length) { $('#sync-sources').innerHTML = `<p class="muted">${t('No browser profiles found.')}</p>`; return; }
+  $('#sync-sources').innerHTML = (any ? '' : `<p class="muted">${t('Nothing to do: none of the bookmarks you deleted are left in your browsers.')}</p>`) +
     plan.filter(p => p.matches.length || p.error).map((p, i) => {
       const n = p.matches.length;
       const notes = [];
       // Synced Chromium profiles: deleting in the file can be undone by the sync server, so the extension is the way.
       const useExt = p.synced && p.browser !== 'Firefox';
-      if (useExt) notes.push(`<span class="warn-text">This profile syncs with your ${esc(p.browser)} account, so its sync server may put file deletions back. <b>Use the browser extension for this one</b> (works with ${esc(p.browser)} open).</span>`);
-      else if (p.synced) notes.push('<span class="muted">Syncs with your Firefox account. Firefox Sync passes the deletions on to your other devices.</span>');
-      if (p.running && !useExt) notes.push(`<span class="warn-text">${esc(p.browser)} is running. Close it completely first (also check the system tray).</span>`);
+      if (useExt) notes.push(`<span class="warn-text">${t('This profile syncs with your {browser} account, so its sync server may put file deletions back. <b>Use the browser extension for this one</b> (works with {browser} open).', { browser: esc(p.browser) })}</span>`);
+      else if (p.synced) notes.push(`<span class="muted">${t('Syncs with your Firefox account. Firefox Sync passes the deletions on to your other devices.')}</span>`);
+      if (p.running && !useExt) notes.push(`<span class="warn-text">${t('{browser} is running. Close it completely first (also check the system tray).', { browser: esc(p.browser) })}</span>`);
       if (p.error) notes.push(`<span class="err">${esc(p.error)}</span>`);
       const preview = p.matches.slice(0, 8).map(m => `<div class="p">• ${esc(m.title || m.url)} <span class="muted">${esc(m.folder)}</span></div>`).join('') +
-        (n > 8 ? `<div class="p">… and ${n - 8} more</div>` : '');
+        (n > 8 ? `<div class="p">${t('… and {n} more', { n: n - 8 })}</div>` : '');
       const idx = plan.indexOf(p);
       return `<label class="sync-src"><input type="checkbox" data-i="${idx}" ${n && !p.running && !p.error && !useExt ? 'checked' : ''} ${n && !p.error ? '' : 'disabled'}>
-        <div><div><b>${esc(p.label)}</b>: ${n} to delete</div>${notes.map(x => `<div class="p">${x}</div>`).join('')}${preview}</div></label>`;
+        <div><div><b>${esc(p.label)}</b>: ${t('{n} to delete', { n })}</div>${notes.map(x => `<div class="p">${x}</div>`).join('')}${preview}</div></label>`;
     }).join('');
 }
 
@@ -530,13 +536,13 @@ $('#sync-go').onclick = async () => {
   const chosen = [...dlg.querySelectorAll('#sync-sources input:checked')].map(c => dlg.plan[+c.dataset.i]);
   if (!chosen.length) return;
   const total = chosen.reduce((n, p) => n + p.matches.length, 0);
-  if (!confirm(`Delete ${total} bookmarks from:\n\n${chosen.map(p => `• ${p.label} (${p.matches.length})`).join('\n')}\n\nA backup of each bookmark file is saved next to it first.`)) return;
+  if (!confirm(t('Delete {total} bookmarks from:\n\n{list}\n\nA backup of each bookmark file is saved next to it first.', { total, list: chosen.map(p => `• ${p.label} (${p.matches.length})`).join('\n') }))) return;
   $('#sync-go').disabled = true;
   try {
     const results = await window.api.browserSyncApply(chosen.map(p => p.label));
     $('#sync-result').innerHTML = results.map(r => r.error
       ? `<div class="err">${esc(r.label)}: ${esc(r.error)}</div>`
-      : `<div>${esc(r.label)}: <b>${r.removed} deleted</b>${r.backup ? ` · <a href="#" data-file="${esc(r.backup)}">show backup</a>` : ''}</div>`).join('');
+      : `<div>${esc(r.label)}: <b>${t('{n} deleted', { n: r.removed })}</b>${r.backup ? ` · <a href="#" data-file="${esc(r.backup)}">${t('show backup')}</a>` : ''}</div>`).join('');
     await loadSyncPlan();
   } finally {
     $('#sync-go').disabled = !dlg.plan?.some(p => p.matches.length);
@@ -549,28 +555,28 @@ $('#sync-result').addEventListener('click', (e) => {
 
 // ---------- restore a browser's bookmark file from a backup ----------
 
-const fmtDateTime = (ms) => new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+const fmtDateTime = (ms) => new Date(ms).toLocaleString(LOCALE, { dateStyle: 'medium', timeStyle: 'medium' });
 
 async function loadBackups() {
   const list = $('#backup-list');
-  list.innerHTML = '<p class="muted">Looking for backups…</p>';
+  list.innerHTML = `<p class="muted">${t('Looking for backups…')}</p>`;
   const profiles = await window.api.browserBackups();
   if (!profiles.length) {
-    list.innerHTML = '<p class="muted">No backups yet. They are made each time <i>Sync to browsers</i> deletes something.</p>';
+    list.innerHTML = `<p class="muted">${t('No backups yet. They are made each time <i>Sync to browsers</i> deletes something.')}</p>`;
     return;
   }
   list.innerHTML = profiles.map(p => `
     <div class="backup-profile">
-      <div><b>${esc(p.label)}</b> <span class="muted">· now ${p.current ?? '?'} bookmarks</span></div>
+      <div><b>${esc(p.label)}</b> <span class="muted">· ${t('now {n} bookmarks', { n: p.current ?? '?' })}</span></div>
       ${p.backups.map(b => {
         const diff = b.count != null && p.current != null ? b.count - p.current : null;
         const delta = diff ? ` <span class="muted">(${diff > 0 ? '+' : ''}${diff})</span>` : '';
         return `<div class="backup-row">
           <span>${esc(fmtDateTime(b.at))}</span>
-          <span class="muted">${b.count == null ? 'unreadable' : `${b.count} bookmarks${delta}`}</span>
+          <span class="muted">${b.count == null ? t('unreadable') : plural(b.count) + delta}</span>
           <span class="spacer"></span>
-          <button class="tiny" data-show="${esc(b.file)}">Show file</button>
-          <button class="tiny" data-label="${esc(p.label)}" data-file="${esc(b.file)}" data-when="${esc(fmtDateTime(b.at))}" data-count="${b.count ?? ''}" ${b.count == null ? 'disabled' : ''}>Restore</button>
+          <button class="tiny" data-show="${esc(b.file)}">${t('Show file')}</button>
+          <button class="tiny" data-label="${esc(p.label)}" data-file="${esc(b.file)}" data-when="${esc(fmtDateTime(b.at))}" data-count="${b.count ?? ''}" ${b.count == null ? 'disabled' : ''}>${t('Restore')}</button>
         </div>`;
       }).join('')}
     </div>`).join('');
@@ -591,12 +597,12 @@ $('#backup-list').addEventListener('click', async (e) => {
   const btn = e.target.closest('button[data-file]');
   if (!btn) return;
   const { label, file, when, count } = btn.dataset;
-  if (!confirm(`Restore the bookmarks of ${label} from ${when} (${count} bookmarks)?\n\nThe browser's current bookmark file is replaced. It's backed up first, so you can switch back.`)) return;
+  if (!confirm(t("Restore the bookmarks of {label} from {when} ({count} bookmarks)?\n\nThe browser's current bookmark file is replaced. It's backed up first, so you can switch back.", { label, when, count }))) return;
   btn.disabled = true;
   const r = await window.api.browserRestore(label, file);
   $('#backup-result').innerHTML = r.error
     ? `<div class="err">${esc(label)}: ${esc(r.error)}</div>`
-    : `<div>${esc(label)}: <b>restored ${r.restored} bookmarks</b> from ${esc(when)}. Start the browser to see them.</div>`;
+    : `<div>${esc(label)}: ${t('<b>restored {n} bookmarks</b> from {when}. Start the browser to see them.', { n: r.restored, when: esc(when) })}</div>`;
   await loadBackups();
 });
 
@@ -605,21 +611,21 @@ $('#backup-list').addEventListener('click', async (e) => {
 async function refreshKeyStatus() {
   const s = await window.api.keyStatus();
   $('#key-input').value = '';
-  $('#key-status').textContent = s.saved ? 'A key is saved.' : s.env ? 'Using ANTHROPIC_API_KEY from your environment.' : 'No key saved yet.';
+  $('#key-status').textContent = s.saved ? t('A key is saved.') : s.env ? t('Using ANTHROPIC_API_KEY from your environment.') : t('No key saved yet.');
 }
 
 async function refreshOllamaStatus() {
   const model = $('#ollama-model').value.trim() || 'qwen2.5:3b';
   const el = $('#ollama-status');
-  el.textContent = 'Checking Ollama…';
+  el.textContent = t('Checking Ollama…');
   const s = await window.api.ollamaStatus(model);
   if (!s.running) {
-    el.innerHTML = 'Ollama is not running. Install it from <a href="https://ollama.com/download" target="_blank">ollama.com/download</a>, then run <code>ollama pull ' + esc(model) + '</code> in a terminal.';
+    el.innerHTML = t('Ollama is not running. Install it from <a href="https://ollama.com/download" target="_blank">ollama.com/download</a>, then run <code>ollama pull {model}</code> in a terminal.', { model: esc(model) });
   } else if (!s.hasModel) {
-    el.innerHTML = `Ollama is running, but the model isn't downloaded yet. In a terminal, run <code>ollama pull ${esc(model)}</code>` +
-      (s.models.length ? `<br>Installed: ${s.models.map(esc).join(', ')}` : '');
+    el.innerHTML = t("Ollama is running, but the model isn't downloaded yet. In a terminal, run <code>ollama pull {model}</code>", { model: esc(model) }) +
+      (s.models.length ? `<br>${t('Installed:')} ${s.models.map(esc).join(', ')}` : '');
   } else {
-    el.textContent = `Ready: Ollama is running and ${model} is installed.`;
+    el.textContent = t('Ready: Ollama is running and {model} is installed.', { model });
   }
 }
 
@@ -639,6 +645,10 @@ async function openSettings() {
   $('#set-watch').checked = !!s.watchBrowsers;
   $('#set-nudge').checked = s.readLaterNudge !== false;
   refreshLibraryBackups();
+  $('#set-autocheck').value = s.autoLinkCheck || 'off';
+  $('#set-theme').value = s.theme || 'system';
+  $('#set-lang').value = s.language || 'auto';
+  showAutoCheckStatus(s);
   $('#set-hotkey-on').checked = !!s.hotkeyEnabled;
   $('#set-hotkey').value = s.hotkey || '';
   $('#set-tray').checked = !!s.closeToTray;
@@ -667,8 +677,8 @@ function showHotkeyStatus(st) {
   if (!st) { el.textContent = ''; return; }
   el.classList.toggle('err', !st.ok);
   el.textContent = !st.ok ? st.error
-    : st.active ? 'Opens the app with the search box ready. Click the keys above to change them.'
-    : 'Off.';
+    : st.active ? t('Opens the app with the search box ready. Click the keys above to change them.')
+    : t('Off.');
 }
 
 // Turns a key press into an Electron shortcut like "Ctrl+Alt+B" (null while only modifiers are down).
@@ -712,15 +722,15 @@ window.api.onFocusSearch(() => {
 // ---------- library backups, export and import ----------
 
 function backupName(b) {
-  if (b.kind === 'daily') return `${fmtDate(Date.parse(b.date + 'T12:00:00'))} (daily)`;
-  return `${fmtDateTime(b.at)} (${b.kind === 'before-import' ? 'before an import' : 'before a restore'})`;
+  if (b.kind === 'daily') return `${fmtDate(Date.parse(b.date + 'T12:00:00'))} (${t('daily')})`;
+  return `${fmtDateTime(b.at)} (${b.kind === 'before-import' ? t('before an import') : t('before a restore')})`;
 }
 
 async function refreshLibraryBackups() {
   const { backups } = await window.api.libraryBackups().catch(() => ({ backups: [] }));
   $('#backups-status').textContent = backups.length
-    ? 'A copy of your library is saved every day (the last 14 are kept), and right before a restore or an import. Choose one to go back to:'
-    : 'A copy of your library is saved every day; the first one is made shortly.';
+    ? t('A copy of your library is saved every day (the last 14 are kept), and right before a restore or an import. Choose one to go back to:')
+    : t('A copy of your library is saved every day; the first one is made shortly.');
   $('#backups-list').innerHTML = backups.map(b => `<option value="${esc(b.name)}">${esc(backupName(b))}</option>`).join('');
   $('#backups-list').classList.toggle('hidden', !backups.length);
   $('#backups-restore').classList.toggle('hidden', !backups.length);
@@ -736,11 +746,11 @@ $('#backups-restore').onclick = async () => {
   state.selectedId = null; state.checked.clear();
   $('#dlg-settings').close();
   await reload();
-  toast(`Restored your library from ${r.from}: ${plural(r.count)}. Your library from before is in the backups list, if you want it back.`, 10000);
+  toast(t('Restored your library from {from}: {count}. Your library from before is in the backups list, if you want it back.', { from: r.from, count: plural(r.count) }), 10000);
 };
 $('#lib-export').onclick = async () => {
   const r = await window.api.exportLibrary();
-  if (r) toast(`Exported ${plural(r.count)} to ${r.file}`, 8000);
+  if (r) toast(t('Exported {count} to {file}', { count: plural(r.count), file: r.file }), 8000);
 };
 $('#lib-import').onclick = async () => {
   const r = await window.api.importLibrary();
@@ -748,10 +758,44 @@ $('#lib-import').onclick = async () => {
   if (r.error) return toast(r.error, 10000);
   $('#dlg-settings').close();
   await reload();
-  toast(`Imported the library file: ${r.added} new, ${r.merged} already here (merged)` +
-    (r.skipped ? `, ${r.skipped} skipped because you deleted them here` : '') + '.', 10000);
+  toast(t('Imported the library file: {added} new, {merged} already here (merged)', r) +
+    (r.skipped ? t(', {n} skipped because you deleted them here', { n: r.skipped }) : '') + '.', 10000);
 };
 $('#set-nudge').addEventListener('change', (e) => window.api.saveSettings({ readLaterNudge: e.target.checked }));
+
+// ---------- automatic link checks ----------
+
+function showAutoCheckStatus(s) {
+  const on = s.autoLinkCheck && s.autoLinkCheck !== 'off';
+  const last = s.lastAutoLinkCheck ? ' ' + t('Last automatic check: {date}.', { date: fmtDate(s.lastAutoLinkCheck) }) : '';
+  $('#autocheck-status').textContent = on
+    ? t('Every bookmark is checked in the background while the app is open (also in the tray), each site contacted once. New dead links are shown in the tray.') + last + (s.lastAutoLinkCheck ? '' : ' ' + t('The first check starts in about a minute.'))
+    : t('Use Check links in the toolbar whenever you like.') + last;
+}
+$('#set-theme').addEventListener('change', (e) => window.api.saveSettings({ theme: e.target.value }));
+// The window reloads in the new language (main does that after saving).
+$('#set-lang').addEventListener('change', (e) => window.api.saveSettings({ language: e.target.value }));
+$('#set-autocheck').addEventListener('change', async (e) => showAutoCheckStatus(await window.api.saveSettings({ autoLinkCheck: e.target.value })));
+
+window.api.onAutoLinks(async (r) => {
+  hideProgress();
+  await reload();
+  const show = () => { state.view = { type: 'smart', value: 'dead' }; state.checked.clear(); renderSidebar(); renderList(); };
+  if (r.newDead) toast(tn(r.newDead, 'Automatic link check: 1 new dead link ({dead} in total).', 'Automatic link check: {n} new dead links ({dead} in total).', { dead: r.dead }), 10000, { label: t('Show'), fn: show });
+});
+// A page saved from the browser extension's popup.
+window.api.onBridgePage(async (c) => {
+  await reload();
+  if (c.added) toast(t('Added a bookmark from {browser}.', { browser: c.browser }), 5000);
+});
+
+window.api.onShowView((value) => {
+  for (const d of document.querySelectorAll('dialog[open]')) d.close();
+  if (!SMART.some(s => s.id === value)) return;
+  state.view = { type: 'smart', value };
+  state.checked.clear();
+  renderSidebar(); renderList();
+});
 $('#set-watch').addEventListener('change', (e) => window.api.saveSettings({ watchBrowsers: e.target.checked }));
 
 // New bookmarks found in a browser (automatic import).
@@ -759,15 +803,15 @@ window.api.onAutoImport(async (results) => {
   await reload();
   const n = results.reduce((a, r) => a + r.added, 0);
   const from = [...new Set(results.map(r => r.label.split(' · ')[0]))].join(', ');
-  toast(`Imported ${plural(n)} you saved in ${from}.`, 6000);
+  toast(t('Imported {count} you saved in {from}.', { count: plural(n), from }), 6000);
 });
 $('#key-save').onclick = async () => {
   const key = $('#key-input').value.trim();
   if (!key) return;
-  try { await window.api.saveKey(key); toast('API key saved.'); refreshKeyStatus(); }
+  try { await window.api.saveKey(key); toast(t('API key saved.')); refreshKeyStatus(); }
   catch (e) { toast(e.message); }
 };
-$('#key-clear').onclick = async () => { await window.api.saveKey(''); toast('API key removed.'); refreshKeyStatus(); };
+$('#key-clear').onclick = async () => { await window.api.saveKey(''); toast(t('API key removed.')); refreshKeyStatus(); };
 $('#settings-close').onclick = () => $('#dlg-settings').close();
 
 // ---------- toolbar ----------
@@ -778,22 +822,21 @@ $('#btn-settings').onclick = openSettings;
 $('#btn-categorize').onclick = async () => {
   const todo = state.visible.filter(b => !b.category);
   const ids = (todo.length ? todo : state.visible).map(b => b.id);
-  if (!ids.length) return toast('Nothing to categorize in this view.');
+  if (!ids.length) return toast(t('Nothing to categorize in this view.'));
   const { categorizer } = await window.api.getSettings();
-  const engine = { rules: 'the built-in rules', ollama: 'local AI (Ollama)', claude: 'Claude' }[categorizer];
-  const what = todo.length ? `${ids.length} uncategorized bookmarks` : `all ${ids.length} bookmarks in this view (they already have categories)`;
-  const msg = `Categorize ${what} with ${engine}?` +
-    (categorizer === 'claude' ? '\n\nTitle, URL and folder name are sent to the Anthropic API.' : '\n\nEverything stays on this PC.') +
-    '\n\n(Change this under ⚙ Settings.)';
+  const engine = t({ rules: 'the built-in rules', ollama: 'local AI (Ollama)', claude: 'Claude' }[categorizer]);
+  const msg = t(todo.length ? 'Categorize {n} uncategorized bookmarks with {engine}?' : 'Categorize all {n} bookmarks in this view (they already have categories) with {engine}?', { n: ids.length, engine }) +
+    '\n\n' + (categorizer === 'claude' ? t('Title, URL and folder name are sent to the Anthropic API.') : t('Everything stays on this PC.')) +
+    '\n\n' + t('(Change this under ⚙ Settings.)');
   if (!confirm(msg)) return;
   $('#btn-categorize').disabled = true;
-  showProgress(`Categorizing with ${engine}…`, 0, ids.length, 'categorize');
+  showProgress(t('Categorizing with {engine}…', { engine }), 0, ids.length, 'categorize');
   try {
     const r = await window.api.categorize(ids);
-    if (r.cancelled) toast(`Stopped. ${r.count} of ${ids.length} bookmarks were categorized and kept.`, 7000);
+    if (r.cancelled) toast(t('Stopped. {count} of {total} bookmarks were categorized and kept.', { count: r.count, total: ids.length }), 7000);
     else if (r.error) toast(r.error, 10000);
-    else toast(`Categorized ${r.count} bookmarks.`);
-    if (r.cpuFallback) setTimeout(() => toast('Ollama crashed on your graphics card, so it now runs on the CPU (slower). This is remembered; change it under ⚙ Settings.', 10000), r.error || r.cancelled ? 10500 : 4000);
+    else toast(tn(r.count, 'Categorized 1 bookmark.', 'Categorized {n} bookmarks.'));
+    if (r.cpuFallback) setTimeout(() => toast(t('Ollama crashed on your graphics card, so it now runs on the CPU (slower). This is remembered; change it under ⚙ Settings.'), 10000), r.error || r.cancelled ? 10500 : 4000);
   } finally {
     $('#btn-categorize').disabled = false;
     hideProgress();
@@ -804,9 +847,9 @@ $('#btn-categorize').onclick = async () => {
 $('#btn-check').onclick = async () => {
   const ids = state.visible.map(b => b.id);
   if (!ids.length) return;
-  if (!confirm(`Check ${ids.length} links? Each site will be contacted once.`)) return;
+  if (!confirm(tn(ids.length, 'Check 1 link? The site will be contacted once.', 'Check {n} links? Each site will be contacted once.'))) return;
   $('#btn-check').disabled = true;
-  showProgress('Checking links…', 0, ids.length, 'links');
+  showProgress(t('Checking links…'), 0, ids.length, 'links');
   const started = Date.now();
   try {
     const r = await window.api.checkLinks(ids);
@@ -819,8 +862,8 @@ $('#btn-check').onclick = async () => {
       const dead = checked.filter(b => b.status === 'dead').length;
       const warn = checked.filter(b => b.status === 'warn').length;
       toast(r.cancelled
-        ? `Stopped after ${r.count} of ${ids.length} links. Results so far are kept: ${dead} dead, ${warn} with problems.`
-        : `Done: ${dead} dead, ${warn} with problems. See “Dead links” in the sidebar.`, 7000);
+        ? t('Stopped after {count} of {total} links. Results so far are kept: {dead} dead, {warn} with problems.', { count: r.count, total: ids.length, dead, warn })
+        : t('Done: {dead} dead, {warn} with problems. See “Dead links” in the sidebar.', { dead, warn }), 7000);
     }
   } finally {
     $('#btn-check').disabled = false;
@@ -840,7 +883,7 @@ $('#btn-export').onclick = async () => {
   if (!state.visible.length) return;
   const anyCats = state.visible.some(b => b.category);
   const file = await window.api.exportHtml(state.visible.map(b => b.id), anyCats ? 'category' : 'folder');
-  if (file) toast(`Exported ${state.visible.length} bookmarks to ${file}`, 6000);
+  if (file) toast(t('Exported {count} to {file}', { count: plural(state.visible.length), file }), 6000);
 };
 
 // ---------- list / sidebar / search events ----------
@@ -869,10 +912,10 @@ function syncChecks() {
   $('#sel-delete').classList.toggle('hidden', del);
   $('#sel-bulk').classList.toggle('hidden', del);
   $('#sel-restore').classList.toggle('hidden', !del);
-  $('#sel-hint').textContent = 'Ctrl+click or Shift+click to select more' + (del ? '' : ' · Del deletes');
+  $('#sel-hint').textContent = t('Ctrl+click or Shift+click to select more') + (del ? '' : ' · ' + t('Del deletes'));
   $('#selbar').classList.toggle('hidden', n === 0);
   $('#list').classList.toggle('picking', n > 0);
-  $('#sel-count').textContent = `${n} selected`;
+  $('#sel-count').textContent = t('{n} selected', { n });
   const all = $('#pick-all');
   all.checked = n > 0 && n === state.visible.length;
   all.indeterminate = n > 0 && n < state.visible.length;
@@ -898,14 +941,14 @@ function clearChecks() { state.checked.clear(); state.anchor = null; syncChecks(
 
 async function deleteBookmarks(ids, what) {
   if (!ids.length) return;
-  if (!confirm(`Delete ${what} from the library?\n\nFuture imports will skip these links. To remove them from your browsers too, use “Sync to browsers”.`)) return;
+  if (!confirm(t('Delete {what} from the library?\n\nFuture imports will skip these links. To remove them from your browsers too, use “Sync to browsers”.', { what }))) return;
   const norms = new Set(state.items.filter(b => ids.includes(b.id)).map(b => b.norm));
   await window.api.remove(ids);
   if (ids.includes(state.selectedId)) state.selectedId = null;
   for (const id of ids) state.checked.delete(id);
   await reload();
   const undo = () => restoreBookmarks(state.deleted.filter(d => norms.has(d.norm)).map(d => d.id));
-  toast(`Deleted ${ids.length} bookmark${ids.length === 1 ? '' : 's'}.`, 8000, { label: 'Undo', fn: undo });
+  toast(tn(ids.length, 'Deleted 1 bookmark.', 'Deleted {n} bookmarks.'), 8000, { label: t('Undo'), fn: undo });
 }
 
 async function restoreBookmarks(ids) {
@@ -914,7 +957,7 @@ async function restoreBookmarks(ids) {
   if (ids.includes(state.selectedId)) state.selectedId = null;
   for (const id of ids) state.checked.delete(id);
   await reload();
-  toast(`Restored ${n} bookmark${n === 1 ? '' : 's'}. Future imports include ${n === 1 ? 'it' : 'them'} again.`);
+  toast(tn(n, 'Restored 1 bookmark. Future imports include it again.', 'Restored {n} bookmarks. Future imports include them again.'));
 }
 
 $('#pick-all').addEventListener('change', (e) => {
@@ -924,7 +967,7 @@ $('#pick-all').addEventListener('change', (e) => {
 $('#sel-clear').onclick = clearChecks;
 $('#sel-delete').onclick = () => {
   const n = state.checked.size;
-  deleteBookmarks([...state.checked], `${n} selected bookmark${n === 1 ? '' : 's'}`);
+  deleteBookmarks([...state.checked], tn(n, '1 selected bookmark', '{n} selected bookmarks'));
 };
 $('#sel-restore').onclick = () => restoreBookmarks([...state.checked]);
 
@@ -932,24 +975,24 @@ $('#sel-restore').onclick = () => restoreBookmarks([...state.checked]);
 
 function ago(ms) {
   const s = Math.round((Date.now() - ms) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  return `${Math.round(s / 3600)} h ago`;
+  if (s < 60) return t('just now');
+  if (s < 3600) return t('{n} min ago', { n: Math.round(s / 60) });
+  return t('{n} h ago', { n: Math.round(s / 3600) });
 }
 
 async function refreshExtDialog() {
   const [info, ff] = await Promise.all([window.api.bridgeInfo(), window.api.bridgeFirefox()]);
   $('#ext-folder').textContent = info.folder;
-  $('#ext-ff-file').textContent = ff.error ? `Couldn't prepare the Firefox version: ${ff.error}` : ff.folder + '\\manifest.json';
+  $('#ext-ff-file').textContent = ff.error ? t("Couldn't prepare the Firefox version: {error}", { error: ff.error }) : ff.folder + '\\manifest.json';
   $('#ext-ff-copy').disabled = !!ff.error;
   $('#ext-token').textContent = info.token;
   const seen = (info.contacts || []).map(c => `${esc(c.browser)} (${ago(c.at)})`).join(', ');
   $('#ext-status').innerHTML = info.error
-    ? `<span class="err">The connection for the extension isn't available: ${esc(info.error)}</span>`
+    ? `<span class="err">${t("The connection for the extension isn't available: {error}", { error: esc(info.error) })}</span>`
     : info.listening
-      ? `<span class="ok-text">● Ready for the extension</span> <span class="muted">(only on this PC, while the app is open)</span>` +
-        (seen ? `<br><span class="muted">Last connected: ${seen}</span>` : '')
-      : '<span class="muted">Starting…</span>';
+      ? `<span class="ok-text">● ${t('Ready for the extension')}</span> <span class="muted">${t('(only on this PC, while the app is open)')}</span>` +
+        (seen ? `<br><span class="muted">${t('Last connected:')} ${seen}</span>` : '')
+      : `<span class="muted">${t('Starting…')}</span>`;
 }
 
 async function openExtDialog() {
@@ -962,30 +1005,31 @@ $('#ext-close').onclick = () => $('#dlg-ext').close();
 $('#ext-open').onclick = () => window.api.bridgeOpenFolder();
 $('#ext-copy').onclick = async () => {
   await window.api.copyText($('#ext-token').textContent);
-  $('#ext-copy').textContent = 'Copied';
-  setTimeout(() => { $('#ext-copy').textContent = 'Copy'; }, 1500);
+  $('#ext-copy').textContent = t('Copied');
+  setTimeout(() => { $('#ext-copy').textContent = t('Copy'); }, 1500);
 };
 $('#ext-new').onclick = async () => {
-  if (!confirm('Make a new pairing code? Browsers using the old code will ask for the new one.')) return;
+  if (!confirm(t('Make a new pairing code? Browsers using the old code will ask for the new one.'))) return;
   await window.api.bridgeNewToken();
   await refreshExtDialog();
 };
 $('#ext-ff-open').onclick = () => window.api.bridgeOpenFirefoxFolder();
-$('#ext-ff-copy').onclick = async () => { await window.api.copyText($('#ext-ff-file').textContent); toast('Copied. Paste it into the File name box in Firefox.'); };
+$('#ext-ff-copy').onclick = async () => { await window.api.copyText($('#ext-ff-file').textContent); toast(t('Copied. Paste it into the File name box in Firefox.')); };
 $('#ext-ff-howto').onclick = (e) => { e.preventDefault(); window.api.open(FIREFOX_SIGN_URL); };
 for (const id of ['#ext-url-chrome', '#ext-url-edge', '#ext-url-firefox']) {
-  $(id).title = 'Click to copy';
+  $(id).title = t('Click to copy');
   $(id).style.cursor = 'pointer';
-  $(id).onclick = async () => { await window.api.copyText($(id).textContent); toast(`Copied ${$(id).textContent}. Paste it in the browser's address bar.`); };
+  $(id).onclick = async () => { await window.api.copyText($(id).textContent); toast(t("Copied {url}. Paste it in the browser's address bar.", { url: $(id).textContent })); };
 }
 
 // The extension reports back after it deletes (or undoes) in a browser.
 window.api.onBridgeReport(async (r) => {
   if ($('#dlg-ext').open) refreshExtDialog();
-  if (r.unorganized) return toast(`${r.browser}: the extension moved its bookmarks back out of the category folders.`, 7000);
-  if (r.organized) return toast(`${r.browser}: the extension sorted ${plural(r.organized)} into category folders.`, 7000);
-  if (r.undone) return toast(`${r.browser}: the extension put its last deletions back.`, 7000);
-  toast(`${r.browser}: the extension deleted ${plural(r.removed)}${r.failed ? ` (${r.failed} couldn't be deleted)` : ''}. Browser sync takes it from here.`, 8000);
+  const browser = r.browser;
+  if (r.unorganized) return toast(t('{browser}: the extension moved its bookmarks back out of the category folders.', { browser }), 7000);
+  if (r.organized) return toast(t('{browser}: the extension sorted {count} into category folders.', { browser, count: plural(r.organized) }), 7000);
+  if (r.undone) return toast(t('{browser}: the extension put its last deletions back.', { browser }), 7000);
+  toast(t('{browser}: the extension deleted {count}', { browser, count: plural(r.removed) }) + (r.failed ? ' ' + t("({n} couldn't be deleted)", { n: r.failed }) : '') + '. ' + t('Browser sync takes it from here.'), 8000);
   if ($('#dlg-sync').open) loadSyncPlan();
 });
 
@@ -1002,7 +1046,7 @@ function openCategoryRename(name) {
   const dlg = $('#dlg-cat');
   const others = [...new Set(state.items.map(b => b.category).filter(c => c && c !== name))].sort();
   dlg.oldName = name;
-  $('#cat-title').textContent = `Rename “${name}”`;
+  $('#cat-title').textContent = t('Rename “{name}”', { name });
   $('#cat-names').innerHTML = others.map(c => `<option value="${esc(c)}">`).join('');
   $('#cat-name').value = name;
   updateCategoryHint();
@@ -1017,9 +1061,9 @@ function updateCategoryHint() {
   const target = state.items.map(b => b.category).find(c => c && c !== dlg.oldName && c.toLowerCase() === v.toLowerCase());
   const n = target ? state.items.filter(b => b.category === target).length : 0;
   $('#cat-hint').textContent = target
-    ? `“${target}” already exists (${plural(n)}). Both will be merged into it.`
-    : 'Type an existing category\'s name to merge into it.';
-  $('#cat-ok').textContent = target ? 'Merge' : 'Rename';
+    ? t('“{target}” already exists ({count}). Both will be merged into it.', { target, count: plural(n) })
+    : t("Type an existing category's name to merge into it.");
+  $('#cat-ok').textContent = target ? t('Merge') : t('Rename');
   dlg.target = target || v;
 }
 
@@ -1033,7 +1077,7 @@ $('#cat-form').addEventListener('submit', () => {
   const changes = state.items.filter(b => inCategory(b.category, from)).map(b => ({ id: b.id, category: to + b.category.slice(from.length) }));
   const merging = state.items.some(b => b.category === to);
   leaveCategoryView(from, to);
-  applyCategoryChanges(changes, merging ? `Merged “${from}” into “${to}”.` : `Renamed “${from}” to “${to}”.`);
+  applyCategoryChanges(changes, t(merging ? 'Merged “{from}” into “{to}”.' : 'Renamed “{from}” to “{to}”.', { from, to }));
 });
 
 // ---------- info panel ----------
@@ -1057,7 +1101,7 @@ const SUPPORT_LINKS = [
   for (const l of SUPPORT_LINKS) {
     const b = document.createElement('button');
     b.className = 'support-link' + (l.primary ? ' primary' : '');
-    b.textContent = l.label;
+    b.textContent = t(l.label);
     b.title = l.url;
     b.onclick = () => window.api.open(l.url); // opens in your default browser
     box.append(b);
@@ -1071,7 +1115,7 @@ $('#info-privacy').onclick = (e) => { e.preventDefault(); window.api.open(PRIVAC
 
 // ---------- bulk actions on the selection ----------
 
-const plural = (n) => `${n} bookmark${n === 1 ? '' : 's'}`;
+const plural = (n) => tn(n, '1 bookmark', '{n} bookmarks');
 
 // Applies one change to every selected bookmark, with Undo that puts each one's old values back.
 async function bulkApply(patch, message) {
@@ -1087,7 +1131,7 @@ async function applyCategoryChanges(changes, message) {
   const after = changes.filter(c => byId.has(c.id)).map(c => snap(byId.get(c.id), c.category || null));
   await window.api.setFields(after);
   await reload();
-  toast(message, 8000, { label: 'Undo', fn: async () => { await window.api.setFields(before); await reload(); toast('Undone.'); } });
+  toast(message, 8000, { label: t('Undo'), fn: async () => { await window.api.setFields(before); await reload(); toast(t('Undone.')); } });
 }
 
 // ---------- Read later ----------
@@ -1104,7 +1148,7 @@ function openBookmark(b) {
 
 function toggleReadLater(ids, on) {
   const n = plural(ids.length);
-  return applyToIds(ids, { readLater: on }, on ? `Added ${n} to Read later.` : `Took ${n} out of Read later.`);
+  return applyToIds(ids, { readLater: on }, t(on ? 'Added {count} to Read later.' : 'Took {count} out of Read later.', { count: n }));
 }
 
 // Once a week at most: a gentle reminder about the queue, or about recent bookmarks never opened.
@@ -1120,17 +1164,17 @@ async function readLaterNudge() {
   let shown = false;
   if (waiting.length) {
     const oldest = Math.min(...waiting.map(b => b.read_later));
-    toast(`Read later: ${plural(waiting.length)} waiting, the oldest since ${fmtDate(oldest)}.`, 10000, { label: 'Show', fn: show('later') });
+    toast(t('Read later: {count} waiting, the oldest since {date}.', { count: plural(waiting.length), date: fmtDate(oldest) }), 10000, { label: t('Show'), fn: show('later') });
     shown = true;
   } else {
     // Saved in the last 3 months (but not this week) and never opened anywhere.
     const now = Date.now();
     const unopened = state.items.filter(b => {
-      const t = b.added_at || b.imported_at;
-      return t && t > now - 90 * DAY && t < now - 7 * DAY && !b.last_used_at && !b.visit_count && !b.opened_at && !b.read_later;
+      const at = b.added_at || b.imported_at;
+      return at && at > now - 90 * DAY && at < now - 7 * DAY && !b.last_used_at && !b.visit_count && !b.opened_at && !b.read_later;
     });
     if (unopened.length >= 3) {
-      toast(`You saved ${plural(unopened.length)} in the last 3 months and never opened them. Put some in Read later?`, 10000, { label: 'Show', fn: show('never') });
+      toast(t('You saved {count} in the last 3 months and never opened them. Put some in Read later?', { count: plural(unopened.length) }), 10000, { label: t('Show'), fn: show('never') });
       shown = true;
     }
   }
@@ -1145,8 +1189,8 @@ async function applyToIds(ids, patch, message) {
   await window.api.bulkUpdate(ids, patch);
   await reload();
   toast(message, 8000, {
-    label: 'Undo',
-    fn: async () => { await window.api.setFields(before); await reload(); toast('Undone.'); },
+    label: t('Undo'),
+    fn: async () => { await window.api.setFields(before); await reload(); toast(t('Undone.')); },
   });
 }
 
@@ -1156,13 +1200,13 @@ function openBulk(mode) {
   const sel = state.items.filter(b => state.checked.has(b.id));
   $('#bulk-cat-fields').classList.toggle('hidden', mode !== 'category');
   $('#bulk-tag-fields').classList.toggle('hidden', mode !== 'tags');
-  $('#bulk-title').textContent = mode === 'category' ? `Set category for ${plural(n)}` : `Tags for ${plural(n)}`;
+  $('#bulk-title').textContent = t(mode === 'category' ? 'Set category for {count}' : 'Tags for {count}', { count: plural(n) });
   const cats = [...new Set(state.items.map(b => b.category).filter(Boolean))].sort();
   $('#bulk-cat-list').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
   // Suggest tags the selection already has first, then the rest.
   const selTags = [...new Set(sel.flatMap(b => b.tags))].sort();
-  const allTags = [...new Set(state.items.flatMap(b => b.tags))].sort().filter(t => !selTags.includes(t));
-  $('#bulk-tag-list').innerHTML = [...selTags, ...allTags].map(t => `<option value="${esc(t)}">`).join('');
+  const allTags = [...new Set(state.items.flatMap(b => b.tags))].sort().filter(tag => !selTags.includes(tag));
+  $('#bulk-tag-list').innerHTML = [...selTags, ...allTags].map(tag => `<option value="${esc(tag)}">`).join('');
   const shared = [...new Set(sel.map(b => b.category || ''))];
   $('#bulk-cat').value = shared.length === 1 ? shared[0] : '';
   $('#bulk-add').value = '';
@@ -1174,24 +1218,24 @@ function openBulk(mode) {
 
 $('#sel-cat').onclick = () => openBulk('category');
 $('#sel-tags').onclick = () => openBulk('tags');
-$('#sel-fav').onclick = () => bulkApply({ favorite: 1 }, `Marked ${plural(state.checked.size)} as favorites.`);
+$('#sel-fav').onclick = () => bulkApply({ favorite: 1 }, t('Marked {count} as favorites.', { count: plural(state.checked.size) }));
 $('#sel-later').onclick = () => {
   const sel = state.items.filter(b => state.checked.has(b.id));
   toggleReadLater(sel.map(b => b.id), !sel.every(b => b.read_later));
 };
-$('#sel-unfav').onclick = () => bulkApply({ favorite: 0 }, `Removed favorite from ${plural(state.checked.size)}.`);
+$('#sel-unfav').onclick = () => bulkApply({ favorite: 0 }, t('Removed favorite from {count}.', { count: plural(state.checked.size) }));
 $('#bulk-cancel').onclick = () => $('#dlg-bulk').close();
 $('#bulk-form').addEventListener('submit', () => {
   const n = state.checked.size;
   if ($('#dlg-bulk').mode === 'category') {
     const cat = $('#bulk-cat').value.trim();
-    bulkApply({ category: cat || null }, cat ? `Moved ${plural(n)} to “${cat}”.` : `Made ${plural(n)} uncategorized.`);
+    bulkApply({ category: cat || null }, t(cat ? 'Moved {count} to “{cat}”.' : 'Made {count} uncategorized.', { count: plural(n), cat }));
   } else {
-    const split = (s) => s.split(',').map(t => t.trim()).filter(Boolean);
+    const split = (s) => s.split(',').map(x => x.trim()).filter(Boolean);
     const addTags = split($('#bulk-add').value), removeTags = split($('#bulk-remove').value);
     if (!addTags.length && !removeTags.length) return;
-    const parts = [addTags.length && `added ${addTags.join(', ')}`, removeTags.length && `removed ${removeTags.join(', ')}`].filter(Boolean);
-    bulkApply({ addTags, removeTags }, `Tags on ${plural(n)}: ${parts.join('; ')}.`);
+    const parts = [addTags.length && t('added {tags}', { tags: addTags.join(', ') }), removeTags.length && t('removed {tags}', { tags: removeTags.join(', ') })].filter(Boolean);
+    bulkApply({ addTags, removeTags }, t('Tags on {count}: {changes}.', { count: plural(n), changes: parts.join('; ') }));
   }
 });
 
@@ -1214,36 +1258,37 @@ $('#sidebar').addEventListener('contextmenu', (e) => {
     const members = state.items.filter(b => inCategory(b.category, name));
     const below = members.filter(b => b.category !== name);
     const hasSub = below.length > 0;
-    menu.innerHTML = `<button data-act="rename">Rename or merge…</button>
-      ${hasSub ? `<button data-act="leaves" title="For example “Speed Dials / Desktop / Recipes” becomes “Recipes”">Keep only the sub-category names (${below.length})</button>
-      <button data-act="collapse">Merge sub-categories into “${esc(catLeaf(name))}” (${below.length})</button>` : ''}
-      ${name.includes(CAT_SEP) ? `<button data-act="leaf-self" title="Drops the parent part of the name">Rename to just “${esc(catLeaf(name))}”${hasSub ? ' (with its sub-categories)' : ''}</button>` : ''}
-      <button data-act="uncat">Remove category (${members.length} become uncategorized)</button>
-      <button class="danger" data-act="delete">Delete ${members.length === 1 ? "the 1 bookmark" : `all ${members.length} bookmarks`}</button>`;
+    const leaf = esc(catLeaf(name));
+    menu.innerHTML = `<button data-act="rename">${t('Rename or merge…')}</button>
+      ${hasSub ? `<button data-act="leaves" title="${t('For example “Speed Dials / Desktop / Recipes” becomes “Recipes”')}">${t('Keep only the sub-category names ({n})', { n: below.length })}</button>
+      <button data-act="collapse">${t('Merge sub-categories into “{name}” ({n})', { name: leaf, n: below.length })}</button>` : ''}
+      ${name.includes(CAT_SEP) ? `<button data-act="leaf-self" title="${t('Drops the parent part of the name')}">${t(hasSub ? 'Rename to just “{name}” (with its sub-categories)' : 'Rename to just “{name}”', { name: leaf })}</button>` : ''}
+      <button data-act="uncat">${t('Remove category ({n} become uncategorized)', { n: members.length })}</button>
+      <button class="danger" data-act="delete">${tn(members.length, 'Delete the 1 bookmark', 'Delete all {n} bookmarks')}</button>`;
     place();
     menu.querySelector('[data-act="rename"]').onclick = () => { hideMenu(); openCategoryRename(name); };
     const act = (sel, fn) => { const b = menu.querySelector(sel); if (b) b.onclick = () => { hideMenu(); fn(); }; };
     act('[data-act="leaves"]', () => {
       leaveCategoryView(name, null);
       applyCategoryChanges(below.map(b => ({ id: b.id, category: catLeaf(b.category) })),
-        `Kept only the sub-category names for ${plural(below.length)}.`);
+        t('Kept only the sub-category names for {count}.', { count: plural(below.length) }));
     });
     act('[data-act="collapse"]', () => {
-      applyCategoryChanges(below.map(b => ({ id: b.id, category: name })), `Merged the sub-categories into “${name}”.`);
+      applyCategoryChanges(below.map(b => ({ id: b.id, category: name })), t('Merged the sub-categories into “{name}”.', { name }));
     });
     act('[data-act="leaf-self"]', () => {
       const to = catLeaf(name);
       leaveCategoryView(name, to);
-      applyCategoryChanges(members.map(b => ({ id: b.id, category: to + b.category.slice(name.length) })), `Renamed “${name}” to “${to}”.`);
+      applyCategoryChanges(members.map(b => ({ id: b.id, category: to + b.category.slice(name.length) })), t('Renamed “{from}” to “{to}”.', { from: name, to }));
     });
     menu.querySelector('[data-act="uncat"]').onclick = () => {
       hideMenu();
       leaveCategoryView(name, null);
-      applyToIds(members.map(b => b.id), { category: null }, `Removed category “${name}” from ${plural(members.length)}.`);
+      applyToIds(members.map(b => b.id), { category: null }, t('Removed category “{name}” from {count}.', { name, count: plural(members.length) }));
     };
     menu.querySelector('[data-act="delete"]').onclick = () => {
       hideMenu();
-      deleteBookmarks(members.map(b => b.id), `all ${plural(members.length)} in category “${name}”`);
+      deleteBookmarks(members.map(b => b.id), t('all {count} in category “{name}”', { count: plural(members.length), name }));
     };
     return;
   }
@@ -1252,7 +1297,7 @@ $('#sidebar').addEventListener('contextmenu', (e) => {
   if (el.dataset.value === 'dups') {
     e.preventDefault();
     const groups = new Set(state.items.filter(b => b.dup).map(b => b.dup)).size;
-    menu.innerHTML = `<button data-act="merge-all">Merge all ${groups} groups (keep the best of each)…</button>`;
+    menu.innerHTML = `<button data-act="merge-all">${t('Merge all {n} groups (keep the best of each)…', { n: groups })}</button>`;
     place();
     menu.querySelector('[data-act="merge-all"]').onclick = () => { hideMenu(); mergeAllDuplicates(); };
     return;
@@ -1260,11 +1305,11 @@ $('#sidebar').addEventListener('contextmenu', (e) => {
   if (el.dataset.value === 'deleted') {
     e.preventDefault();
     const n = state.deleted.length;
-    menu.innerHTML = `<button data-act="restore-all">Restore all ${n}</button>`;
+    menu.innerHTML = `<button data-act="restore-all">${t('Restore all {n}', { n })}</button>`;
     place();
     menu.querySelector('[data-act="restore-all"]').onclick = () => {
       hideMenu();
-      if (confirm(`Restore all ${n} deleted bookmarks to the library?`)) restoreBookmarks(state.deleted.map(d => d.id));
+      if (confirm(t('Restore all {n} deleted bookmarks to the library?', { n }))) restoreBookmarks(state.deleted.map(d => d.id));
     };
     return;
   }
@@ -1272,11 +1317,12 @@ $('#sidebar').addEventListener('contextmenu', (e) => {
   e.preventDefault();
   const view = SMART.find(s => s.id === el.dataset.value);
   const targets = state.items.filter(view.test);
-  menu.innerHTML = `<button class="danger" data-act="delete-all">Delete all ${targets.length} in “${esc(view.name)}”</button>`;
+  const viewName = t(view.name);
+  menu.innerHTML = `<button class="danger" data-act="delete-all">${t('Delete all {n} in “{view}”', { n: targets.length, view: esc(viewName) })}</button>`;
   place();
   menu.querySelector('[data-act="delete-all"]').onclick = () => {
     hideMenu();
-    deleteBookmarks(targets.map(b => b.id), `all ${targets.length} bookmarks in “${view.name}”`);
+    deleteBookmarks(targets.map(b => b.id), t('all {count} in “{view}”', { count: plural(targets.length), view: viewName }));
   };
 });
 document.addEventListener('click', (e) => { if (!e.target.closest('#ctxmenu')) hideMenu(); });
@@ -1460,7 +1506,7 @@ reload().then(() => setTimeout(readLaterNudge, 4000));
     // A small label instead of a picture of the whole row.
     const ghost = document.createElement('div');
     ghost.className = 'drag-ghost';
-    ghost.textContent = dragIds.length === 1 ? (state.items.find(b => b.id === id)?.title || '1 bookmark') : `${dragIds.length} bookmarks`;
+    ghost.textContent = dragIds.length === 1 ? (state.items.find(b => b.id === id)?.title || plural(1)) : plural(dragIds.length);
     document.body.append(ghost);
     e.dataTransfer.setDragImage(ghost, 10, 10);
     setTimeout(() => ghost.remove(), 0);
@@ -1480,15 +1526,15 @@ reload().then(() => setTimeout(readLaterNudge, 4000));
 
   $('#sidebar').addEventListener('dragover', (e) => {
     if (!dragIds) return;
-    const t = targetOf(e);
-    if (!t) { clearTarget(); return; }
+    const el = targetOf(e);
+    if (!el) { clearTarget(); return; }
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    if (t.classList.contains('drop-target')) return;
+    if (el.classList.contains('drop-target')) return;
     clearTarget();
-    t.classList.add('drop-target');
+    el.classList.add('drop-target');
     // Hovering over a closed parent opens it, so you can drop deeper.
-    const caret = t.querySelector('[data-toggle]');
+    const caret = el.querySelector('[data-toggle]');
     if (caret && caret.textContent === '▸') {
       hoverTimer = setTimeout(() => { expanded.toggle(caret.dataset.toggle); renderSidebar(); }, 700);
     }
@@ -1497,16 +1543,16 @@ reload().then(() => setTimeout(readLaterNudge, 4000));
     if (!e.relatedTarget || !$('#sidebar').contains(e.relatedTarget)) clearTarget();
   });
   $('#sidebar').addEventListener('drop', (e) => {
-    const t = targetOf(e);
+    const el = targetOf(e);
     clearTarget();
-    if (!t || !dragIds) return;
+    if (!el || !dragIds) return;
     e.preventDefault();
     const ids = dragIds;
-    const n = plural(ids.length);
-    if (t.dataset.value === 'favorites') return applyToIds(ids, { favorite: 1 }, `Marked ${n} as favorites.`);
-    if (t.dataset.value === 'later') return toggleReadLater(ids, true);
-    if (t.dataset.value === 'uncategorized') return applyToIds(ids, { category: null }, `Made ${n} uncategorized.`);
-    const cat = t.dataset.value;
-    applyToIds(ids, { category: cat }, `Moved ${n} to “${cat}”.`);
+    const count = plural(ids.length);
+    if (el.dataset.value === 'favorites') return applyToIds(ids, { favorite: 1 }, t('Marked {count} as favorites.', { count }));
+    if (el.dataset.value === 'later') return toggleReadLater(ids, true);
+    if (el.dataset.value === 'uncategorized') return applyToIds(ids, { category: null }, t('Made {count} uncategorized.', { count }));
+    const cat = el.dataset.value;
+    applyToIds(ids, { category: cat }, t('Moved {count} to “{cat}”.', { count, cat }));
   });
 })();

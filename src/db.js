@@ -409,6 +409,52 @@ class Library {
     }).filter(Boolean);
   }
 
+  // ---------- the browser extension's "This page" ----------
+
+  // The library entry for a URL (also found through a merged URL), or null.
+  findByUrl(url) {
+    const norm = normalizeUrl(url);
+    const alias = this.get('SELECT bookmark_id FROM aliases WHERE norm = ?', [norm]);
+    const row = alias ? this.get('SELECT * FROM bookmarks WHERE id = ?', [alias.bookmark_id]) : this.get('SELECT * FROM bookmarks WHERE norm = ?', [norm]);
+    if (!row) return null;
+    return {
+      id: row.id, url: row.url, title: row.title, category: row.category || '', notes: row.notes || '',
+      favorite: !!row.favorite, readLater: !!row.read_later,
+      tags: this.all('SELECT tag FROM tags WHERE bookmark_id = ? ORDER BY tag', [row.id]).map(t => t.tag),
+    };
+  }
+
+  // Categories in use, and tags by how often they're used (for suggestions).
+  vocabulary() {
+    return {
+      categories: this.all("SELECT DISTINCT category FROM bookmarks WHERE category IS NOT NULL AND category != '' ORDER BY category").map(r => r.category),
+      tags: this.all('SELECT tag FROM tags GROUP BY tag ORDER BY COUNT(*) DESC, tag LIMIT 200').map(r => r.tag),
+    };
+  }
+
+  // Saves a page from the extension: adds it if it's new (even if it was deleted before, since you
+  // asked for it), then sets its title, category, tags, notes and Read later. Returns { id, added }.
+  savePage({ url, title, category, tags, notes, readLater }, sourceLabel) {
+    const norm = normalizeUrl(url);
+    let existing = this.findByUrl(url);
+    let added = false;
+    if (!existing) {
+      this.run('DELETE FROM removed WHERE norm = ?', [norm]);
+      this.importItems([{ url, title, addedAt: Date.now() }], sourceLabel);
+      existing = this.findByUrl(url);
+      added = true;
+    }
+    const id = existing.id;
+    const patch = {};
+    if (typeof title === 'string' && title.trim()) patch.title = title.trim();
+    if (typeof category === 'string') patch.category = category.trim() || null;
+    if (typeof notes === 'string') patch.notes = notes;
+    if (Array.isArray(tags)) patch.tags = tags;
+    this.update(id, patch);
+    if (typeof readLater === 'boolean') this.bulkUpdate([id], { readLater });
+    return { id, added };
+  }
+
   // ---------- whole-library export / import (JSON) ----------
 
   // Everything needed to move the library to another PC: bookmarks with notes, tags, categories,
