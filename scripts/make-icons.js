@@ -1,4 +1,4 @@
-// Draws the extension icons (blue rounded tile with a white bookmark ribbon) as PNGs. No dependencies.
+// Draws the extension icons and the app icon (blue rounded tile with a white bookmark ribbon). No dependencies.
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
@@ -56,4 +56,22 @@ function icon(size) {
 }
 
 for (const s of [16, 48, 128]) fs.writeFileSync(path.join(__dirname, '..', 'extension', `icon${s}.png`), icon(s));
+
+// The app icon for the installer and Windows (taskbar, Start menu): an .ico holding PNGs from 16 to 256 px.
+function ico(sizes) {
+  const pngs = sizes.map(icon);
+  const head = Buffer.alloc(6 + 16 * sizes.length);
+  head.writeUInt16LE(0, 0); head.writeUInt16LE(1, 2); head.writeUInt16LE(sizes.length, 4);
+  let offset = head.length;
+  sizes.forEach((s, i) => {
+    const e = 6 + 16 * i;
+    head[e] = s >= 256 ? 0 : s; head[e + 1] = s >= 256 ? 0 : s; // 0 means 256
+    head.writeUInt16LE(1, e + 4); head.writeUInt16LE(32, e + 6);
+    head.writeUInt32LE(pngs[i].length, e + 8); head.writeUInt32LE(offset, e + 12);
+    offset += pngs[i].length;
+  });
+  return Buffer.concat([head, ...pngs]);
+}
+fs.mkdirSync(path.join(__dirname, '..', 'build'), { recursive: true });
+fs.writeFileSync(path.join(__dirname, '..', 'build', 'icon.ico'), ico([16, 24, 32, 48, 64, 128, 256]));
 console.log('icons written');

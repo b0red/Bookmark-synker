@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0 (2026-11-21)
+
+- **Windows installer** (`npm run dist` → `dist\Bookmark-syncer-Setup-1.0.0.exe`): no Node.js needed, installs for your user without administrator rights, Start menu and desktop shortcuts, your choice of folder. Uninstalling keeps your library
+- App icon (taskbar, Start menu, installer), drawn by `scripts/make-icons.js`
+- In the installed app, the browser extension folder is a normal folder next to the app, so Chrome's *Load unpacked* can open it
+
 ## 0.9.2 (2026-11-21)
 
 - **Ko-fi tip link** at the bottom of the ? help panel (opens in your browser) and in the README. `.github/FUNDING.yml` adds GitHub's Sponsor button once the repository is public

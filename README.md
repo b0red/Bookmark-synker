@@ -39,7 +39,9 @@ Your browsers' own bookmarks are only **read**, except when you click **Sync to 
 
 ## Quick start
 
-You need [Node.js](https://nodejs.org) 20 or newer.
+**Installer:** run `Bookmark-syncer-Setup-<version>.exe` (no Node.js needed). It isn't code-signed, so Windows asks you to confirm: *More info → Run anyway*. Build it with `npm run dist`.
+
+**From the source code:** you need [Node.js](https://nodejs.org) 20 or newer.
 
 ```powershell
 git clone https://github.com/b0red/Bookmark-synker.git bookmark-syncer
@@ -83,6 +85,7 @@ npm test       # library tests, "sync to browsers" on COPIES of your browser fil
                # the extension bridge + logic on in-memory copies of your bookmark trees, duplicates,
                # automatic import and Read later on throwaway libraries
 npm run smoke  # prints bookmark counts per browser profile
+npm run dist   # builds the Windows installer in dist\
 node scripts/make-demo.js  # remakes docs/screenshot.png from a made-up library
 ```
 

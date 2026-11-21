@@ -225,7 +225,7 @@ function setupAutoImport() {
 // ---------- browser extension bridge ----------
 
 let bridge = null;
-const extensionDir = () => path.join(__dirname, 'extension');
+const extensionDir = () => require('./src/extbuild').SOURCE;
 
 function bridgeToken() {
   let t = loadSettings().bridgeToken;

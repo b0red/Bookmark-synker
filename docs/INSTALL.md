@@ -1,5 +1,24 @@
 # Installing and setting up Bookmark syncer
 
+## Option A: the installer (easiest)
+
+1. Get `Bookmark-syncer-Setup-<version>.exe` (from the project's Releases page, or build it yourself, see below).
+2. Run it. Windows may show **"Windows protected your PC"**, because the installer isn't signed with a paid certificate. Click **More info → Run anyway**.
+3. Choose where to install (your user folder by default, no administrator rights needed) and finish. It adds a Start menu entry and a desktop shortcut.
+4. Continue with [4. Import your bookmarks](#4-import-your-bookmarks).
+
+Your library lives in `%APPDATA%\Bookmark syncer\`, the same place as when you run it from the source, so switching between the two keeps everything. Uninstalling (Windows Settings → Apps) keeps your library too.
+
+**Build the installer yourself** (needs steps 1–3 below once):
+
+```powershell
+npm run dist
+```
+
+It writes `dist\Bookmark-syncer-Setup-<version>.exe`.
+
+## Option B: run from the source code
+
 ## 1. Install Node.js
 
 Download and install the **LTS** version from <https://nodejs.org> (version 20 or newer). Keep the default options.
@@ -93,7 +112,7 @@ In the app, click **Sync to browsers → Set up the browser extension…** and k
 
 1. Open `chrome://extensions` (Chrome, Brave, Vivaldi), `edge://extensions` (Edge) or `opera://extensions` (Opera).
 2. Turn on **Developer mode** (top right in Chrome, in the left side panel in Edge).
-3. Click **Load unpacked** and choose the `extension` folder inside the project (the app's **Open folder** button shows it).
+3. Click **Load unpacked** and choose the `extension` folder the app shows (its **Open folder** button opens it). From the source code it's inside the project; in the installed app it's `resources\app.asar.unpacked\extension` in the install folder.
 4. Pin it: click the puzzle-piece icon in the toolbar, then the pin next to *Bookmark syncer helper*.
 5. Click the extension's icon, paste the **pairing code** from the app and click **Connect**.
 
@@ -181,6 +200,10 @@ Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> in any program to bring up the
 
 ## Updating
 
+**Installed app:** run the new installer; it replaces the old version and keeps your library. Then reload the browser extension (see below).
+
+**From the source code:**
+
 ```powershell
 git pull
 npm install
@@ -191,4 +214,7 @@ Your library is kept in `%APPDATA%\Bookmark syncer\` and isn't touched by update
 
 ## Uninstalling
 
-If you turned on *Start with Windows*, turn it off in ⚙ Settings first. Then quit the app (tray icon → Quit) and delete the project folder and `%APPDATA%\Bookmark syncer\`.
+If you turned on *Start with Windows*, turn it off in ⚙ Settings first, then quit the app (tray icon → Quit).
+
+- **Installed app:** Windows Settings → Apps → *Bookmark syncer* → Uninstall. Your library stays in `%APPDATA%\Bookmark syncer\`; delete that folder too to remove everything.
+- **From the source code:** delete the project folder and `%APPDATA%\Bookmark syncer\`.

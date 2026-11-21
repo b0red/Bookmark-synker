@@ -17,13 +17,16 @@ Ranked by how much each helps the main job (one clean library that stays in step
 
 ## Last
 
-- [ ] **Installer**: a packaged `.exe` with electron-builder so Node.js isn't needed. Saved for the end, once the features have settled.
+- [x] **Installer**: a packaged `.exe` with electron-builder so Node.js isn't needed (1.0.0).
 
 ## Not planned for now
 
 - Publishing the extension in the Chrome Web Store / Edge Add-ons / addons.mozilla.org listing (private project). Private Firefox signing is described in [docs/INSTALL.md](docs/INSTALL.md#firefox-keep-it-installed).
 
 ## Known issues
+
+- The installer isn't code-signed, so Windows SmartScreen asks for confirmation (*More info → Run anyway*). A signing certificate costs money; not planned for a private project.
+- No automatic updates: run the new installer to update.
 
 - Sorting into folders (extension) moves bookmarks out of their old folders but leaves those folders in place, even when they end up empty. Undo puts everything back.
 - The global shortcut is unavailable while another program uses the same keys; Settings says so, and you can pick other keys.

@@ -35,7 +35,8 @@ The renderer runs with `contextIsolation: true` and `nodeIntegration: false`. It
 | `scripts/test-extension.js` | Checks the bridge's security rules, then runs the extension's find / delete / undo and sort-into-folders / undo logic on in-memory copies of this PC's Chromium and Firefox bookmark trees, and checks the Firefox build |
 | `scripts/test-dups.js`, `test-autoimport.js`, `test-later.js`, `test-ollama.js` | Near-duplicates and merging, automatic import, Read later, and the Ollama CPU fallback, on throwaway libraries and fakes |
 | `scripts/make-demo.js` | Builds a made-up library and saves `docs/screenshot.png` |
-| `scripts/make-icons.js` | Draws the extension icons (pure Node, no dependencies) |
+| `scripts/make-icons.js` | Draws the extension icons and `build/icon.ico` (pure Node, no dependencies) |
+| `package.json` → `build` | electron-builder settings for the NSIS installer (`npm run dist`): per-user install, keeps the library on uninstall, `extension/` unpacked from `app.asar` so browsers can load it as a folder, English and Swedish Electron locales only |
 | `scripts/smoke.js` | Prints counts per browser profile |
 
 ## Database

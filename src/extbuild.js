@@ -5,7 +5,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const SOURCE = path.join(__dirname, '..', 'extension');
+// In the installed app the extension is kept outside app.asar (see asarUnpack in package.json),
+// so Chrome's "Load unpacked" can open it as a normal folder.
+const SOURCE = path.join(__dirname, '..', 'extension').replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
 const GECKO_ID = 'bookmark-syncer-helper@bookmark-syncer.local';
 
 function firefoxManifest(base) {
