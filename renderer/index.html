@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
   <title>Bookmark syncer</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -265,6 +265,10 @@
     <p id="hotkey-status" class="muted small"></p>
     <label class="check"><input type="checkbox" id="set-tray"> Closing the window keeps the app running in the tray</label>
     <label class="check"><input type="checkbox" id="set-login"> Start with Windows (in the tray)</label>
+
+    <label>Library backups</label>
+    <p id="backups-status" class="muted small"></p>
+    <div class="row"><button id="backups-open" class="tiny">Open backups folder</button></div>
 
     <label>Read later</label>
     <label class="check"><input type="checkbox" id="set-nudge"> Remind me about unread bookmarks (at most once a week)</label>

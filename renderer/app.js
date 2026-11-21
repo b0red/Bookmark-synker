@@ -3,6 +3,25 @@
 const $ = (sel) => document.querySelector(sel);
 const DAY = 86400000;
 
+// Unexpected errors: logged to crash.log and shown briefly, instead of failing silently.
+(function catchErrors() {
+  let last = 0;
+  const report = (where, err) => {
+    const msg = (err && (err.message || err.reason?.message)) || String(err);
+    window.api.logError(where, (err && err.stack) || msg);
+    if (Date.now() - last < 5000) return; // don't flood
+    last = Date.now();
+    const t = document.getElementById('toast');
+    if (t) { t.textContent = `Something went wrong: ${msg}. Details are in crash.log in the data folder.`; t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 8000); }
+  };
+  window.addEventListener('error', (e) => report('error', e.error || e.message));
+  window.addEventListener('unhandledrejection', (e) => report('promise', e.reason));
+})();
+
+// Files dropped on the window are ignored (the window only shows the app).
+document.addEventListener('dragover', (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) e.preventDefault(); });
+document.addEventListener('drop', (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) e.preventDefault(); });
+
 const state = {
   items: [],
   view: { type: 'smart', value: 'all' },
@@ -619,6 +638,11 @@ async function openSettings() {
   $('#set-import-start').checked = !!s.importOnStart;
   $('#set-watch').checked = !!s.watchBrowsers;
   $('#set-nudge').checked = s.readLaterNudge !== false;
+  window.api.libraryBackups().then(({ backups }) => {
+    $('#backups-status').textContent = backups.length
+      ? `A copy of your library is saved every day (the last 14 are kept). Newest: ${backups[0].date}, ${backups.length} in total. To go back to one, quit the app and copy it over library.sqlite.`
+      : 'A copy of your library is saved every day; the first one is made shortly.';
+  }).catch(() => {});
   $('#set-hotkey-on').checked = !!s.hotkeyEnabled;
   $('#set-hotkey').value = s.hotkey || '';
   $('#set-tray').checked = !!s.closeToTray;
@@ -689,6 +713,7 @@ window.api.onFocusSearch(() => {
   $('#search').select();
 });
 
+$('#backups-open').onclick = () => window.api.openLibraryBackups();
 $('#set-nudge').addEventListener('change', (e) => window.api.saveSettings({ readLaterNudge: e.target.checked }));
 $('#set-watch').addEventListener('change', (e) => window.api.saveSettings({ watchBrowsers: e.target.checked }));
 

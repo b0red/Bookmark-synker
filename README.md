@@ -60,9 +60,11 @@ Everything is stored locally in `%APPDATA%\Bookmark syncer\`. Versions before 0.
 |---|---|
 | `library.sqlite` | Your library (bookmarks, categories, tags, notes, deleted-link list) |
 | `settings.json` | Which categorizer to use, Ollama model, import, shortcut and tray options, the extension pairing code |
+| `backups\` | A copy of `library.sqlite` from each of the last 14 days (⚙ Settings → *Open backups folder*) |
+| `crash.log` | Unexpected errors, if any, to help find problems |
 | `anthropic-key.bin` | Your Claude API key, encrypted with your Windows account (only if you saved one) |
 
-To back up your library, copy `library.sqlite`. To start over, delete it.
+The app backs up your library once a day. To go back to a backup, quit the app (tray icon → Quit) and copy it over `library.sqlite`. If the library file is ever damaged, the app starts from the newest backup by itself and keeps the damaged file. To start over, delete `library.sqlite`.
 
 ## Privacy
 

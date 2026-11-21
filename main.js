@@ -13,6 +13,7 @@ const { buildFirefox } = require('./src/extbuild');
 const { pickKeeper } = require('./src/duplicates');
 const { createAutoImporter } = require('./src/autoimport');
 const trayMod = require('./src/tray');
+const safety = require('./src/safety');
 
 let win, lib;
 let tray = null, quitting = false, hotkeyStatus = { ok: true, active: false };
@@ -38,12 +39,28 @@ function createWindow() {
     icon: ICON,
     show: !(startHidden && DESKTOP_HOOKS),
     autoHideMenuBar: true,
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   // Links inside the app open in the user's default browser, never inside the app window.
   win.webContents.setWindowOpenHandler(({ url }) => { openExternal(url); return { action: 'deny' }; });
-  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file:')) { e.preventDefault(); openExternal(url); } });
+  // The window only ever shows the app itself. Anything else (a link, or a file dropped on the window)
+  // would get the app's functions, so it's blocked; web links open in the browser instead.
+  win.webContents.on('will-navigate', (e, url) => { e.preventDefault(); openExternal(url); });
+  win.webContents.on('will-attach-webview', (e) => e.preventDefault());
+  // If the page crashes, reload it (at most 3 times a minute) instead of leaving a blank window.
+  const crashes = [];
+  win.webContents.on('render-process-gone', (_e, details) => {
+    if (details.reason === 'clean-exit') return;
+    safety.logError(dataDir(), 'window', `page ${details.reason} (exit code ${details.exitCode})`);
+    const now = Date.now();
+    crashes.push(now);
+    while (crashes.length && crashes[0] < now - 60000) crashes.shift();
+    if (crashes.length <= 3 && !win.isDestroyed()) win.reload();
+    else dialog.showErrorBox('Bookmark syncer', `The window keeps crashing. Your library is saved. Details are in ${path.join(dataDir(), 'crash.log')}.`);
+  });
+  // Windows is shutting down or signing out: really quit (hiding to the tray would hold up the shutdown).
+  win.on('session-end', () => { quitting = true; });
   // Closing the window keeps the app in the tray (if that's on), so the shortcut keeps working.
   win.on('close', (e) => {
     if (quitting || !tray || !loadSettings().closeToTray) return;
@@ -189,7 +206,7 @@ ipcMain.handle('key:save', async (_e, key) => {
 function saveSettings(patch) {
   const next = { ...loadSettings(), ...patch };
   fs.mkdirSync(dataDir(), { recursive: true });
-  fs.writeFileSync(settingsFile(), JSON.stringify(next, null, 2));
+  safety.writeFileAtomic(settingsFile(), JSON.stringify(next, null, 2));
   return next;
 }
 
@@ -353,9 +370,24 @@ function toNetscapeHtml(items, groupBy) {
 // Dev hooks: BMLIB_DATA points the app at a separate data folder; BMLIB_SNAPSHOT saves a screenshot and quits.
 if (process.env.BMLIB_DATA) app.setPath('userData', process.env.BMLIB_DATA);
 
-// One copy of the app at a time: opening it again shows the running one.
-if (!app.requestSingleInstanceLock()) app.quit();
+// One copy of the app at a time: opening it again shows the running one. A second copy must never
+// open the library, or the two would overwrite each other's changes.
+const firstInstance = app.requestSingleInstanceLock();
+if (!firstInstance) app.quit();
 else app.on('second-instance', () => showWindow());
+
+// Unexpected errors are logged (crash.log in the data folder) instead of stopping the app.
+process.on('uncaughtException', (e) => { safety.logError(dataDir(), 'main', e); console.error(e); });
+process.on('unhandledRejection', (e) => { safety.logError(dataDir(), 'main (promise)', e); console.error(e); });
+ipcMain.handle('app:logError', (_e, where, message) => safety.logError(dataDir(), `window: ${String(where).slice(0, 100)}`, String(message).slice(0, 4000)));
+
+// Library backups: daily copies in the data folder's "backups" folder.
+const libraryFile = () => path.join(dataDir(), 'library.sqlite');
+function dailyBackup() {
+  try { safety.backupLibrary(dataDir(), libraryFile()); } catch (e) { safety.logError(dataDir(), 'backup', e); }
+}
+ipcMain.handle('library:backups', () => ({ folder: path.join(dataDir(), 'backups'), backups: safety.listLibraryBackups(dataDir()) }));
+ipcMain.handle('library:openBackups', () => { fs.mkdirSync(path.join(dataDir(), 'backups'), { recursive: true }); return shell.openPath(path.join(dataDir(), 'backups')); });
 app.on('before-quit', () => { quitting = true; });
 app.on('will-quit', () => { if (DESKTOP_HOOKS) require('electron').globalShortcut.unregisterAll(); });
 
@@ -374,9 +406,24 @@ function migrateOldData() {
 }
 
 app.whenReady().then(async () => {
+  if (!firstInstance) return;
   migrateOldData();
-  lib = await Library.open(path.join(dataDir(), 'library.sqlite'));
+  const opened = await safety.openLibrarySafely(Library, dataDir(), libraryFile());
+  lib = opened.lib;
+  dailyBackup();
+  setInterval(dailyBackup, 60 * 60 * 1000).unref();
   createWindow();
+  if (opened.recovered) {
+    const r = opened.recovered;
+    safety.logError(dataDir(), 'library', `damaged library moved to ${r.damaged}: ${r.error}`);
+    win.webContents.once('did-finish-load', () => dialog.showMessageBox(win, {
+      type: 'warning', title: 'Bookmark syncer',
+      message: 'Your library file was damaged.',
+      detail: (r.from ? `It was replaced with the backup from ${r.from}. Changes after that day are missing; importing from your browsers brings back new bookmarks.`
+        : 'There was no backup, so the app started with an empty library. Import from your browsers to fill it again.') +
+        `\n\nThe damaged file is kept as ${path.basename(r.damaged)} in the data folder.`,
+    }));
+  }
   if (DESKTOP_HOOKS) {
     const s = loadSettings();
     tray = trayMod.createTray({ icon: ICON, onOpen: () => showWindow(), onSearch: () => showWindow(true), onQuit: quitApp });

@@ -7,7 +7,7 @@ renderer/app.js  ──window.api.*──▶  preload.js  ──ipcRenderer.invo
      (UI)                          (contextBridge)                       (IPC handlers)
 ```
 
-The renderer runs with `contextIsolation: true` and `nodeIntegration: false`. It can only call the functions that `preload.js` exposes. Links always open in the user's default browser, and only `http(s)` URLs are allowed.
+The renderer runs sandboxed with `contextIsolation: true` and `nodeIntegration: false`, under a strict Content-Security-Policy (scripts only from the app). The window can't navigate anywhere (a dropped file or link opens nothing; web links go to the default browser), and a crashed page is reloaded. Errors in either process are written to `crash.log`. It can only call the functions that `preload.js` exposes. Links always open in the user's default browser, and only `http(s)` URLs are allowed.
 
 ## Files
 
@@ -20,6 +20,7 @@ The renderer runs with `contextIsolation: true` and `nodeIntegration: false`. It
 | `src/duplicates.js` | Near-duplicates: a looser URL key (`m.`/AMP/`youtu.be`/index pages, case) plus same path + title, grouped with union-find. Picks which bookmark to keep |
 | `src/autoimport.js` | Imports on start and when a browser's bookmark file changes (checks timestamps once a minute; Firefox at most every 10 minutes) |
 | `src/tray.js` | Tray icon, the global search shortcut (`globalShortcut`) and *Start with Windows* |
+| `src/safety.js` | Daily library backups (14 kept), opening a damaged library from the newest working backup, `crash.log`, atomic file writes |
 | `src/db.js` | The `Library` class, a SQLite database via sql.js, saved atomically to disk |
 | `src/rules.js` | Offline categorizer: known domains, keywords, folder names |
 | `src/ollama.js` | Local AI categorizer (Ollama HTTP API, structured JSON output, automatic CPU fallback) |
@@ -34,6 +35,7 @@ The renderer runs with `contextIsolation: true` and `nodeIntegration: false`. It
 | `scripts/test-sync.js` | Runs browser sync on copies of this PC's browser files and checks the result |
 | `scripts/test-extension.js` | Checks the bridge's security rules, then runs the extension's find / delete / undo and sort-into-folders / undo logic on in-memory copies of this PC's Chromium and Firefox bookmark trees, and checks the Firefox build |
 | `scripts/test-dups.js`, `test-autoimport.js`, `test-later.js`, `test-ollama.js` | Near-duplicates and merging, automatic import, Read later, and the Ollama CPU fallback, on throwaway libraries and fakes |
+| `scripts/test-safety.js` | Daily backups and pruning, recovery from a damaged library, the crash log |
 | `scripts/make-demo.js` | Builds a made-up library and saves `docs/screenshot.png` |
 | `scripts/make-icons.js` | Draws the extension icons and `build/icon.ico` (pure Node, no dependencies) |
 | `package.json` → `build` | electron-builder settings for the NSIS installer (`npm run dist`): per-user install, keeps the library on uninstall, `extension/` unpacked from `app.asar` so browsers can load it as a folder, English and Swedish Electron locales only |

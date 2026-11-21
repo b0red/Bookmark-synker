@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bookmark syncer helper",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Deletes the bookmarks you removed in the Bookmark syncer app, through the browser itself, so browser sync keeps them deleted.",
   "permissions": ["bookmarks", "storage"],
   "host_permissions": ["http://127.0.0.1:47615/*"],

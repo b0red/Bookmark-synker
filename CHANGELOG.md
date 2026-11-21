@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.1 (2026-11-21)
+
+Stability and security:
+
+- **Daily library backups** in `%APPDATA%\Bookmark syncer\backups\` (the last 14 days). ⚙ Settings shows the newest and opens the folder
+- **A damaged library no longer stops the app**: it starts from the newest working backup (or empty, if there is none), keeps the damaged file and explains what happened
+- **Crash protection**: a crashed window reloads by itself; unexpected errors are written to `crash.log` and shown briefly instead of failing silently
+- **Security**: files dropped on the window can no longer open inside the app (where they would have had the app's access to your bookmarks and browser files); the window is sandboxed and the content policy is stricter
+- A second copy of the app no longer opens the library at all (two copies could overwrite each other's changes)
+- With *close to tray* on, the app no longer holds up Windows shutdown or sign-out
+- Settings are saved atomically, so a crash can't leave them half-written
+
 ## 1.0.0 (2026-11-21)
 
 - **Windows installer** (`npm run dist` → `dist\Bookmark-syncer-Setup-1.0.0.exe`): no Node.js needed, installs for your user without administrator rights, Start menu and desktop shortcuts, your choice of folder. Uninstalling keeps your library
