@@ -1,13 +1,18 @@
 // Tests the browser extension path:
 // 1. the local bridge only answers the extension (pairing code, host and origin checks)
-// 2. the extension's matching / delete / undo logic, run against an in-memory copy of this PC's
-//    real Chromium bookmark trees (the real files are only read).
+// 2. the extension's matching / delete / undo logic, run against in-memory copies of this PC's
+//    real Chromium and Firefox bookmark trees (the real files are only read)
+// 3. the Firefox build of the extension
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const assert = require('assert');
 const http = require('http');
+const initSqlJs = require('sql.js');
 const { startBridge, newToken } = require('../src/bridge');
+const { buildFirefox, GECKO_ID, SOURCE } = require('../src/extbuild');
 const core = require('../extension/core');
-const { detectSources, parseChromium } = require('../src/importers');
+const { detectSources, parseChromium, parseFirefox } = require('../src/importers');
 const { normalizeUrl } = require('../src/normalize');
 const bs = require('../src/browsersync');
 
@@ -26,23 +31,53 @@ function request({ method = 'GET', path = '/v1/hello', headers = {}, body }) {
   });
 }
 
-// A fake chrome.bookmarks API over a tree built from a Chromium "Bookmarks" file.
-function fakeBookmarks(file) {
+// chrome.bookmarks-style tree from a Chromium "Bookmarks" file.
+function chromiumTree(file) {
   const data = JSON.parse(fs.readFileSync(file, 'utf8'));
   let nextId = 1;
-  const byId = new Map();
   const make = (n, parentId, index) => {
     const node = { id: String(nextId++), parentId, index, title: n.name || '' };
     if (n.type === 'url') node.url = n.url;
     else node.children = (n.children || []).map((c, i) => make(c, node.id, i));
-    byId.set(node.id, node);
     return node;
   };
   const root = { id: '0', title: '', children: [] };
-  byId.set('0', root);
   for (const key of ['bookmark_bar', 'other', 'synced']) {
     if (data.roots[key]) root.children.push(make(data.roots[key], '0', root.children.length));
   }
+  return root;
+}
+
+// browser.bookmarks-style tree from a COPY of Firefox's places.sqlite (ids are GUIDs, like in Firefox).
+function firefoxTree(file, SQL) {
+  const db = new SQL.Database(fs.readFileSync(file));
+  const rows = db.exec(`SELECT b.id, b.parent, b.type, b.title, b.guid, p.url
+                        FROM moz_bookmarks b LEFT JOIN moz_places p ON p.id = b.fk ORDER BY b.parent, b.position`)[0].values;
+  db.close();
+  const byRow = new Map(rows.map(([id, parent, type, title, guid, url]) => [id, { id: guid, rowParent: parent, type, title: title || '', url }]));
+  let root;
+  for (const n of byRow.values()) {
+    if (n.type === 2) n.children = [];
+    if (n.id === 'root________') root = n;
+  }
+  for (const n of byRow.values()) {
+    const p = byRow.get(n.rowParent);
+    if (n === root || !p) continue;
+    n.parentId = p.id;
+    n.index = p.children.length;
+    if (n.type !== 1) delete n.url; // folders and separators have no URL
+    p.children.push(n);
+  }
+  const clean = (n) => { delete n.rowParent; delete n.type; (n.children || []).forEach(clean); };
+  clean(root);
+  return root;
+}
+
+// A fake chrome.bookmarks / browser.bookmarks API over a tree.
+function fakeBookmarks(root) {
+  let created = 0; // new ids must not collide with the tree's own ids
+  const byId = new Map();
+  (function index(n) { byId.set(n.id, n); (n.children || []).forEach(index); })(root);
   const reindex = (p) => p.children.forEach((c, i) => { c.index = i; });
   const clone = (n) => JSON.parse(JSON.stringify(n));
   return {
@@ -59,7 +94,7 @@ function fakeBookmarks(file) {
     create: async ({ parentId, index, title, url }) => {
       const p = byId.get(parentId);
       if (!p || !p.children) throw new Error('Can\'t find parent bookmark for id.');
-      const node = { id: String(nextId++), parentId, title, url };
+      const node = { id: `new-${++created}`, parentId, title, url };
       const at = index === undefined ? p.children.length : Math.min(index, p.children.length);
       p.children.splice(at, 0, node);
       byId.set(node.id, node);
@@ -102,18 +137,24 @@ const layout = (tree) => core.flatten(tree).map(b => `${b.folder}\t${b.index}\t$
   console.log('Bridge: pairing code, host and origin checks OK');
 
   // ---------- 2. extension logic on real bookmark trees ----------
+  const SQL = await initSqlJs();
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bmlib-ext-test-'));
   let tested = 0;
-  for (const s of detectSources().filter(x => x.type === 'chromium')) {
-    const items = parseChromium(s.path);
+  for (const s of detectSources()) {
+    const ff = s.type === 'firefox';
+    const file = ff ? path.join(tmp, `${tested}-places.sqlite`) : s.path;
+    if (ff) fs.copyFileSync(s.path, file); // Firefox locks its file; work on a copy
+    const items = ff ? parseFirefox(file, SQL) : parseChromium(file);
     if (items.length < 6) continue;
     const deleted = new Set(items.filter((_, i) => i % 40 === 0).slice(0, 30).map(b => normalizeUrl(b.url)));
     deleted.add('not-in-this-browser.example/x');
 
-    const bm = fakeBookmarks(s.path);
+    const bm = fakeBookmarks(ff ? firefoxTree(file, SQL) : chromiumTree(file));
     const before = layout(await bm.getTree());
     const matches = core.findMatches(await bm.getTree(), deleted);
-    // Same answer as the file-based "Sync to browsers" preview (the extension leaves chrome:// etc. alone).
-    const appMatches = bs.chromiumPlan(s.path, deleted).matches.filter(m => /^https?:/i.test(m.url));
+    if (ff) assert.strictEqual(core.otherFolderId(await bm.getTree()), 'unfiled_____', 'Firefox Undo falls back to Other Bookmarks');
+    // Same answer as the file-based "Sync to browsers" preview (the extension leaves chrome://, place: etc. alone).
+    const appMatches = (ff ? bs.firefoxPlan(file, deleted, SQL) : bs.chromiumPlan(file, deleted)).matches.filter(m => /^https?:/i.test(m.url));
     assert.strictEqual(matches.length, appMatches.length, `${s.label}: extension and app disagree`);
 
     const { removed, failed } = await core.removeMatches(bm, matches);
@@ -129,6 +170,24 @@ const layout = (tree) => core.flatten(tree).map(b => `${b.folder}\t${b.index}\t$
     console.log(`${s.label}: found ${matches.length}, deleted ${removed.length}, undo restored all in place. OK`);
     tested++;
   }
-  assert.ok(tested > 0, 'no Chromium profiles to test');
+  assert.ok(tested > 0, 'no browser profiles to test');
+
+  // ---------- 3. Firefox build ----------
+  const ffDir = path.join(tmp, 'firefox-extension');
+  const manifestFile = buildFirefox(ffDir);
+  const ffm = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+  const base = JSON.parse(fs.readFileSync(path.join(SOURCE, 'manifest.json'), 'utf8'));
+  assert.strictEqual(ffm.browser_specific_settings.gecko.id, GECKO_ID);
+  assert.deepStrictEqual(ffm.browser_specific_settings.gecko.data_collection_permissions, { required: ['none'] });
+  assert.ok(!('browser_specific_settings' in base), 'the Chrome manifest stays free of Firefox keys');
+  assert.strictEqual(ffm.version, base.version);
+  for (const f of fs.readdirSync(SOURCE)) assert.ok(fs.existsSync(path.join(ffDir, f)), `${f} copied`);
+  // Everything the manifest and popup refer to exists in the build.
+  for (const f of [ffm.action.default_popup, ...Object.values(ffm.icons)]) assert.ok(fs.existsSync(path.join(ffDir, f)), f);
+  const html = fs.readFileSync(path.join(ffDir, 'popup.html'), 'utf8');
+  for (const [, f] of html.matchAll(/(?:src|href)="([^"#][^"]*)"/g)) assert.ok(fs.existsSync(path.join(ffDir, f)), f);
+  console.log('Firefox build: manifest, add-on ID and files OK');
+
+  fs.rmSync(tmp, { recursive: true, force: true });
   console.log(`All extension checks passed on ${tested} profiles.`);
 })().catch(e => { console.error(e); process.exit(1); });

@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('api', {
   bridgeInfo: () => ipcRenderer.invoke('bridge:info'),
   bridgeNewToken: () => ipcRenderer.invoke('bridge:newToken'),
   bridgeOpenFolder: () => ipcRenderer.invoke('bridge:openFolder'),
+  bridgeFirefox: () => ipcRenderer.invoke('bridge:firefox'),
+  bridgeOpenFirefoxFolder: () => ipcRenderer.invoke('bridge:openFirefoxFolder'),
   copyText: (text) => ipcRenderer.invoke('clipboard:write', text),
   onBridgeReport: (fn) => ipcRenderer.on('bridge-report', (_e, r) => fn(r)),
   cancelJob: (kind) => ipcRenderer.invoke('job:cancel', kind),

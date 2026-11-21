@@ -4,22 +4,26 @@
 
 const BASE = 'http://127.0.0.1:47615';
 const $ = (s) => document.querySelector(s);
-const bm = chrome.bookmarks; // promise-based in Manifest V3
+// Firefox has `browser.*`; Chromium browsers have `chrome.*`. Both are promise-based in Manifest V3.
+const ext = globalThis.browser || globalThis.chrome;
+const bm = ext.bookmarks;
+const APP_ACCESS = { origins: [`${BASE}/*`] };
 
 function browserName() {
+  if (/Firefox\//.test(navigator.userAgent)) return 'Firefox';
   const brands = (navigator.userAgentData && navigator.userAgentData.brands) || [];
   const known = brands.map(b => b.brand).find(b => /Edge|Chrome|Brave|Opera|Vivaldi/i.test(b) && !/Chromium/i.test(b));
   return known ? known.replace('Microsoft ', '').replace('Google ', '') : 'Chromium browser';
 }
 
 function show(view) {
-  for (const v of ['pair', 'offline', 'main', 'done']) $(`#v-${v}`).classList.toggle('hidden', v !== view);
-  $('#unpair').classList.toggle('hidden', view === 'pair');
+  for (const v of ['perm', 'pair', 'offline', 'main', 'done']) $(`#v-${v}`).classList.toggle('hidden', v !== view);
+  $('#unpair').classList.toggle('hidden', view === 'pair' || view === 'perm');
 }
 
 const store = {
-  get: (k) => chrome.storage.local.get(k).then(r => r[k]),
-  set: (k, v) => chrome.storage.local.set({ [k]: v }),
+  get: (k) => ext.storage.local.get(k).then(r => r[k]),
+  set: (k, v) => ext.storage.local.set({ [k]: v }),
 };
 
 async function call(path, token, body) {
@@ -36,6 +40,8 @@ async function call(path, token, body) {
 let state = { token: null, matches: [] };
 
 async function load() {
+  // Firefox may install it without access to the app (host permissions are optional there).
+  if (ext.permissions && !(await ext.permissions.contains(APP_ACCESS).catch(() => true))) return show('perm');
   state.token = await store.get('token');
   if (!state.token) return show('pair');
   $('#status').textContent = 'Connecting…';
@@ -103,7 +109,7 @@ $('#offline-retry').onclick = load;
 
 $('#unpair').onclick = async (e) => {
   e.preventDefault();
-  await chrome.storage.local.remove('token');
+  await ext.storage.local.remove('token');
   $('#pair-code').value = '';
   show('pair');
 };
@@ -128,7 +134,7 @@ $('#done-undo').onclick = async () => {
   if (!last || !last.items.length) return;
   $('#done-undo').disabled = true;
   const n = await BMCore.restore(bm, last.items, state.otherId);
-  await chrome.storage.local.remove('lastRun');
+  await ext.storage.local.remove('lastRun');
   call('/v1/report', state.token, { removed: 0, undone: true }).catch(() => {});
   $('#done-summary').innerHTML = `<b>Put back ${n} bookmark${n === 1 ? '' : 's'}.</b> To keep them for good, also restore them under <i>Recently deleted</i> in the app.`;
   $('#done-undo').classList.add('hidden');
@@ -136,3 +142,10 @@ $('#done-undo').onclick = async () => {
 };
 
 load();
+
+// Firefox: ask for access to the app on this PC (needs a click, so it's a button).
+$('#perm-allow').onclick = async () => {
+  const ok = await ext.permissions.request(APP_ACCESS).catch(() => false);
+  if (ok) load();
+  else $('#perm-error').classList.remove('hidden');
+};

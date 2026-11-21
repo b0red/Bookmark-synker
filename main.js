@@ -9,6 +9,7 @@ const rules = require('./src/rules');
 const { checkAll } = require('./src/linkcheck');
 const browserSync = require('./src/browsersync');
 const { startBridge, newToken } = require('./src/bridge');
+const { buildFirefox } = require('./src/extbuild');
 
 let win, lib;
 const dataDir = () => app.getPath('userData');
@@ -154,6 +155,12 @@ function bridgeToken() {
 ipcMain.handle('bridge:info', () => ({ token: bridgeToken(), folder: extensionDir(), ...(bridge ? bridge.status() : { listening: false }) }));
 ipcMain.handle('bridge:newToken', () => saveSettings({ bridgeToken: newToken() }).bridgeToken);
 ipcMain.handle('bridge:openFolder', () => shell.openPath(extensionDir()));
+// Firefox build: rebuilt from extension/ each time, so it always matches this version of the app.
+const firefoxDir = () => path.join(dataDir(), 'firefox-extension');
+ipcMain.handle('bridge:firefox', () => {
+  try { return { folder: firefoxDir(), manifest: buildFirefox(firefoxDir()) }; } catch (e) { return { error: e.message }; }
+});
+ipcMain.handle('bridge:openFirefoxFolder', () => { buildFirefox(firefoxDir()); return shell.openPath(firefoxDir()); });
 ipcMain.handle('clipboard:write', (_e, text) => { clipboard.writeText(String(text)); return true; });
 ipcMain.handle('ollama:status', (_e, model) => ollama.status(model || loadSettings().ollamaModel));
 

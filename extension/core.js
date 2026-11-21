@@ -60,10 +60,12 @@
     return restored;
   }
 
-  // "Other bookmarks" / "Other favorites": the second top-level folder in every Chromium browser.
+  // Where Undo puts a bookmark whose folder is gone: "Other Bookmarks" in Firefox ("unfiled_____"),
+  // otherwise "Other bookmarks" / "Other favorites", the second top-level folder in Chromium browsers.
   function otherFolderId(tree) {
     const top = (tree[0] && tree[0].children) || [];
-    return (top[1] || top[0] || {}).id;
+    const ff = top.find(c => c.id === 'unfiled_____');
+    return (ff || top[1] || top[0] || {}).id;
   }
 
   const api = { flatten, findMatches, removeMatches, restore, otherFolderId };

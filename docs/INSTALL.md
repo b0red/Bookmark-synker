@@ -83,18 +83,44 @@ A backup of each file is saved next to it, named `Bookmarks.bookmark-syncer-back
 - **Firefox Sync**: deletions are recorded the way Firefox itself does it, so they should reach your other devices.
 - **Chrome / Edge / Brave / Vivaldi / Opera with sync turned on**: these browsers don't expect their file to change while they're closed, and the sync server puts the bookmarks back. Use the **browser extension** (next section) for these. The Sync dialog marks such profiles and leaves them unticked.
 
-## 7. The browser extension (Chrome, Edge and other Chromium browsers)
+## 7. The browser extension
 
-The **Bookmark syncer helper** extension deletes bookmarks through the browser itself, so the browser's own sync removes them on all your devices. It works while the browser is open, so you don't need to close anything.
+The **Bookmark syncer helper** extension deletes bookmarks through the browser itself, so the browser's own sync removes them on all your devices. It works while the browser is open, so you don't need to close anything. It isn't published in any extension store; you load it from your own copy.
 
-**Install it once per browser** (it isn't in the Chrome Web Store, so it's loaded from the project folder):
+In the app, click **Sync to browsers → Set up the browser extension…** and keep that window open. It has the folders and the pairing code.
 
-1. In the app, click **Sync to browsers → Set up the browser extension…**. Keep that window open; it has the folder and the pairing code.
-2. In the browser, open `chrome://extensions` (Chrome, Brave, Vivaldi), `edge://extensions` (Edge) or `opera://extensions` (Opera).
-3. Turn on **Developer mode** (top right in Chrome, in the left side panel in Edge).
-4. Click **Load unpacked** and choose the `extension` folder inside the project (the app's **Open folder** button shows it).
-5. Pin it: click the puzzle-piece icon in the toolbar, then the pin next to *Bookmark syncer helper*.
-6. Click the extension's icon, paste the **pairing code** from the app and click **Connect**.
+### Chrome, Edge, Brave, Vivaldi, Opera
+
+1. Open `chrome://extensions` (Chrome, Brave, Vivaldi), `edge://extensions` (Edge) or `opera://extensions` (Opera).
+2. Turn on **Developer mode** (top right in Chrome, in the left side panel in Edge).
+3. Click **Load unpacked** and choose the `extension` folder inside the project (the app's **Open folder** button shows it).
+4. Pin it: click the puzzle-piece icon in the toolbar, then the pin next to *Bookmark syncer helper*.
+5. Click the extension's icon, paste the **pairing code** from the app and click **Connect**.
+
+### Firefox
+
+This is optional: *Sync to browsers* already works with Firefox Sync. The extension only saves you closing Firefox.
+
+The app prepares a Firefox version of the extension in `%APPDATA%\Bookmark syncer\firefox-extension\` (rebuilt each time you open the setup window, so it always matches the app).
+
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on…** and choose `manifest.json` in that folder.
+3. Pin it: click the puzzle-piece icon, then the gear next to *Bookmark syncer helper* → *Pin to Toolbar*.
+4. Click its icon. The first time, click **Allow** so it may talk to the app on this PC, then paste the pairing code.
+
+### Firefox: keep it installed
+
+Firefox removes a temporary add-on when it closes, and normal Firefox only installs add-ons that Mozilla has signed. You can have it signed **privately** for free. It is not published or listed anywhere:
+
+1. Sign in to (or create) a free account at [addons.mozilla.org](https://addons.mozilla.org/developers/).
+2. Make a zip: open the `firefox-extension` folder, select **all files inside it**, right-click → *Send to* → *Compressed (zipped) folder*. Zip the files, not the folder.
+3. In the Developer Hub, click **Submit a New Add-on**, choose **On your own** (self-distribution), and upload the zip.
+4. The automatic check usually takes a few minutes. Then download the signed `.xpi` file.
+5. Drag the `.xpi` into a Firefox window, or open `about:addons` → gear icon → *Install Add-on From File…*.
+
+After an update that changes the extension, its version number goes up; sign the new version the same way. If you use the command line, `npx web-ext sign --channel=unlisted --source-dir "%APPDATA%\Bookmark syncer\firefox-extension" --api-key <key> --api-secret <secret>` does steps 2–4 (keys from the Developer Hub under *Manage API Keys*).
+
+Firefox Developer Edition and Nightly can also install unsigned add-ons: set `xpinstall.signatures.required` to `false` in `about:config`, then install the zip from step 2 (renamed to `.xpi`).
 
 **Using it**
 
@@ -110,7 +136,9 @@ The **Bookmark syncer helper** extension deletes bookmarks through the browser i
 - The extension never sends your bookmarks anywhere. It only reads the list of deleted URLs from the app and reports how many it removed.
 - Chrome may show a "Disable developer mode extensions" banner at startup. Click the × to keep it.
 
-**Updating the extension**: after `git pull`, open the extensions page and click the reload icon on *Bookmark syncer helper*.
+- Firefox: the extension talks to the app only after you click **Allow** in it.
+
+**Updating the extension**: after `git pull`, open the extensions page and click the reload icon on *Bookmark syncer helper*. In Firefox, open the app's setup window (to rebuild the Firefox version), then click **Reload** in `about:debugging`, or sign and install the new version.
 
 ## Troubleshooting
 

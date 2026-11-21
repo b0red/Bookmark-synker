@@ -8,6 +8,14 @@
 <body>
   <header><b>Bookmark syncer</b> <span class="muted">helper</span></header>
 
+  <!-- 0. Firefox: access to the app not granted yet -->
+  <section id="v-perm" class="hidden">
+    <p><b>Allow access to the app.</b></p>
+    <p class="muted">The helper talks only to Bookmark syncer on this PC (127.0.0.1). Firefox asks you to allow that once.</p>
+    <p id="perm-error" class="err hidden">Not allowed. Click the button again and choose Allow.</p>
+    <button id="perm-allow" class="primary">Allow</button>
+  </section>
+
   <!-- 1. Pairing -->
   <section id="v-pair" class="hidden">
     <p>Paste the <b>pairing code</b> from the app: <i>Sync to browsers → Set up the browser extension</i>.</p>

@@ -24,6 +24,7 @@ The renderer runs with `contextIsolation: true` and `nodeIntegration: false`. It
 | `src/browsersync.js` | "Sync to browsers": finds deleted URLs in each profile, then removes them (refuses while the browser runs, backs up first, writes atomically). Chromium: edits the `Bookmarks` JSON and drops its checksum. Firefox: deletes rows, fixes `foreign_count` and positions, and writes `moz_bookmarks_deleted` tombstones for Firefox Sync |
 | `src/bridge.js` | Local HTTP server for the browser extension, on `127.0.0.1:47615` while the app runs. Accepts only `chrome-extension://` (and `moz-`/`edge-`) origins, a matching `Host` (against DNS rebinding) and the pairing code (`X-Bookmark-Syncer-Token`). Routes: `GET /v1/hello`, `GET /v1/deleted` (normalized URLs), `POST /v1/report` |
 | `extension/` | The **Bookmark syncer helper** (Manifest V3). `core.js` finds, removes and restores bookmarks with `chrome.bookmarks`; `popup.*` is the UI; `normalize.js` is shared with the app (`src/normalize.js` re-exports it) so both match URLs the same way |
+| `src/extbuild.js` | Builds the Firefox version of the extension: copies `extension/` and adds `browser_specific_settings` (add-on ID, data collection: none) to the manifest. The app writes it to `%APPDATA%\Bookmark syncer\firefox-extension\` |
 | `src/linkcheck.js` | HEAD/GET link checker with timeouts and limited concurrency |
 | `renderer/` | UI: sidebar views, list, detail panel, dialogs, right-click menu |
 | `scripts/test-db.js` | Integration test against the browsers on this PC |

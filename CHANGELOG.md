@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0 (2026-11-21)
+
+- **Firefox** support for the browser extension. The app builds a Firefox version in `%APPDATA%\Bookmark syncer\firefox-extension\`, and the setup window explains how to load it (temporary) or sign it privately (permanent). The first time, the extension asks you to allow access to the app
+- **Resizable library pane**: drag its edge (or focus it and use the arrow keys), double-click to reset. The width is remembered
+- The extension's setup window now shows the pairing code at the top, with separate steps for Chromium browsers and Firefox
+- TODO: the Ideas list is now in priority order
+
 ## 0.7.0 (2026-11-21)
 
 - **Restore from backup** in the Sync dialog: lists the backups Sync to browsers made for each profile (date, bookmark count, difference from now) and puts one back with a click. The file it replaces is backed up first, so you can switch back

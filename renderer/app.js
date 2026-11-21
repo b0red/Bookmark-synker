@@ -693,8 +693,9 @@ function ago(ms) {
 }
 
 async function refreshExtDialog() {
-  const info = await window.api.bridgeInfo();
+  const [info, ff] = await Promise.all([window.api.bridgeInfo(), window.api.bridgeFirefox()]);
   $('#ext-folder').textContent = info.folder;
+  $('#ext-ff-folder').textContent = ff.error ? `Couldn't prepare the Firefox version: ${ff.error}` : ff.folder;
   $('#ext-token').textContent = info.token;
   const seen = (info.contacts || []).map(c => `${esc(c.browser)} (${ago(c.at)})`).join(', ');
   $('#ext-status').innerHTML = info.error
@@ -723,7 +724,9 @@ $('#ext-new').onclick = async () => {
   await window.api.bridgeNewToken();
   await refreshExtDialog();
 };
-for (const id of ['#ext-url-chrome', '#ext-url-edge']) {
+$('#ext-ff-open').onclick = () => window.api.bridgeOpenFirefoxFolder();
+$('#ext-ff-howto').onclick = (e) => { e.preventDefault(); window.api.open(FIREFOX_SIGN_URL); };
+for (const id of ['#ext-url-chrome', '#ext-url-edge', '#ext-url-firefox']) {
   $(id).title = 'Click to copy';
   $(id).style.cursor = 'pointer';
   $(id).onclick = async () => { await window.api.copyText($(id).textContent); toast(`Copied ${$(id).textContent}. Paste it in the browser's address bar.`); };
@@ -794,6 +797,7 @@ $('#btn-info').onclick = async () => {
 $('#info-close').onclick = () => $('#dlg-info').close();
 // The full guide lives in the GitHub README (the repo is private, so it needs your GitHub sign-in).
 const README_URL = 'https://github.com/b0red/Bookmark-synker#readme';
+const FIREFOX_SIGN_URL = 'https://github.com/b0red/Bookmark-synker/blob/main/docs/INSTALL.md#firefox-keep-it-installed';
 $('#info-more').onclick = (e) => { e.preventDefault(); window.api.open(README_URL); };
 
 // ---------- bulk actions on the selection ----------
@@ -973,3 +977,52 @@ document.addEventListener('keydown', (e) => {
 });
 
 reload();
+
+// ---------- resizable library pane ----------
+
+(function sidebarResizer() {
+  const KEY = 'sidebarWidth', DEFAULT = 240, MIN = 170;
+  const handle = $('#sidebar-resizer');
+  const max = () => Math.max(MIN, Math.min(560, Math.round(window.innerWidth * 0.5)));
+  const clamp = (w) => Math.max(MIN, Math.min(max(), Math.round(w)));
+  const current = () => $('#sidebar').getBoundingClientRect().width;
+  const apply = (w) => {
+    const v = clamp(w);
+    document.documentElement.style.setProperty('--sidebar-w', `${v}px`);
+    handle.setAttribute('aria-valuenow', v);
+    return v;
+  };
+  const save = (w) => { try { localStorage.setItem(KEY, String(w)); } catch {} };
+  let saved = null;
+  try { saved = Number(localStorage.getItem(KEY)) || null; } catch {}
+  if (saved) apply(saved);
+
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const startX = e.clientX, startW = current();
+    try { handle.setPointerCapture(e.pointerId); } catch {}
+    handle.classList.add('dragging');
+    document.body.classList.add('resizing');
+    const move = (ev) => apply(startW + ev.clientX - startX);
+    const up = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.classList.remove('dragging');
+      document.body.classList.remove('resizing');
+      save(Math.round(current()));
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up, { once: true });
+    handle.addEventListener('pointercancel', up, { once: true });
+  });
+  handle.addEventListener('dblclick', () => { save(apply(DEFAULT)); });
+  handle.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 40 : 10;
+    if (e.key === 'ArrowLeft') save(apply(current() - step));
+    else if (e.key === 'ArrowRight') save(apply(current() + step));
+    else return;
+    e.preventDefault();
+  });
+  // Keep it within bounds when the window gets smaller.
+  window.addEventListener('resize', () => { if (current() > max()) apply(max()); });
+})();
