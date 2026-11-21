@@ -17,6 +17,9 @@ const crypto = require('crypto');
 const PORT = 47615;
 const MAX_BODY = 1024 * 1024;
 
+// Every header the extension sends must be listed here: Firefox checks this (CORS), Chrome doesn't.
+const ALLOWED_HEADERS = 'Content-Type, X-Bookmark-Syncer-Token, X-Bookmark-Syncer-Browser';
+
 function isExtensionOrigin(origin) {
   return /^(chrome|moz|edge)-extension:\/\/[a-z0-9-]+$/i.test(origin || '');
 }
@@ -43,7 +46,8 @@ function startBridge({ port = PORT, getToken, getDeletedNorms, getCategories = (
       const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
       if (isExtensionOrigin(origin)) {
         headers['Access-Control-Allow-Origin'] = origin;
-        headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Bookmark-Syncer-Token';
+        headers['Access-Control-Allow-Headers'] = ALLOWED_HEADERS;
+        headers['Access-Control-Max-Age'] = '600';
         headers['Access-Control-Allow-Methods'] = 'GET, POST';
       }
       res.writeHead(code, headers);
@@ -109,4 +113,4 @@ function startBridge({ port = PORT, getToken, getDeletedNorms, getCategories = (
   };
 }
 
-module.exports = { startBridge, newToken, PORT };
+module.exports = { startBridge, newToken, PORT, ALLOWED_HEADERS };

@@ -138,6 +138,15 @@ const layout = (tree) => core.flatten(tree).map(b => `${b.folder}\t${b.index}\t$
   const pre = await request({ method: 'OPTIONS', headers: { host: ok.host, origin: EXT } });
   assert.strictEqual(pre.status, 204);
   assert.strictEqual(pre.headers['access-control-allow-origin'], EXT);
+  // Firefox enforces CORS on the extension: the preflight must allow every header popup.js sends.
+  const popupSrc = fs.readFileSync(path.join(__dirname, '..', 'extension', 'popup.js'), 'utf8');
+  const sent = [...popupSrc.matchAll(/'(X-Bookmark-Syncer-[A-Za-z-]+|Content-Type)':/g)].map(m => m[1].toLowerCase());
+  assert.ok(sent.length >= 3, 'found the popup headers');
+  const ffPre = await request({ method: 'OPTIONS', headers: { host: ok.host, origin: 'moz-extension://0a1b2c3d-1111-2222-3333-444455556666',
+    'access-control-request-method': 'POST', 'access-control-request-headers': sent.join(',') } });
+  assert.strictEqual(ffPre.status, 204);
+  const allowed = ffPre.headers['access-control-allow-headers'].toLowerCase().split(/,\s*/);
+  for (const h of sent) assert.ok(allowed.includes(h), `preflight allows ${h}`);
   const hello = await request({ headers: ok });
   assert.strictEqual(hello.status, 200);
   assert.deepStrictEqual(hello.body, { app: 'Bookmark syncer', version: '9.9.9', deleted: 2 });

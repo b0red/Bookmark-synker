@@ -104,7 +104,7 @@ This is optional: *Sync to browsers* already works with Firefox Sync. The extens
 The app prepares a Firefox version of the extension in `%APPDATA%\Bookmark syncer\firefox-extension\` (rebuilt each time you open the setup window, so it always matches the app).
 
 1. Open `about:debugging#/runtime/this-firefox`.
-2. Click **Load Temporary Add-on…** and choose `manifest.json` in that folder.
+2. Click **Load Temporary Add-on…**. In the file window, paste the path from the app's **Copy** button (it ends in `firefox-extension\manifest.json`) into the *File name* box and press Enter. Use this folder, not the project's `extension` folder.
 3. Pin it: click the puzzle-piece icon, then the gear next to *Bookmark syncer helper* → *Pin to Toolbar*.
 4. Click its icon. The first time, click **Allow** so it may talk to the app on this PC, then paste the pairing code.
 
@@ -176,6 +176,7 @@ Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> in any program to bring up the
 | Extension: "Bookmark syncer isn't running" | Open the app, then click **Try again**. If the app's extension window says the port is in use, the app is probably open twice. |
 | The shortcut does nothing | Another program has the same keys. ⚙ Settings shows this; pick other keys. |
 | The app seems gone after closing it | It's in the tray (near the clock, maybe under the ^ arrow). Turn off *Closing the window keeps the app running in the tray* if you prefer. |
+| Firefox extension: "Could not reach the app" while the app is open | Fixed in 0.9.1 (the app refused a header only Firefox checks). Restart the app, then click **Reload** on the add-on in `about:debugging`. |
 | Extension: "That code doesn't match" | Copy the code again from the app (it changes if you click **New code**). |
 
 ## Updating

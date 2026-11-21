@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1 (2026-11-21)
+
+- **Fixed: the Firefox extension couldn't connect** ("Could not reach the app"). The app didn't allow one of the extension's headers, which Firefox checks and Chrome doesn't
+- The extension says what went wrong when the app answers with an error, instead of always "Could not reach the app"
+- Firefox setup: a **Copy** button for the full path to `manifest.json`, to paste into Firefox's file window
+
 ## 0.9.0 (2026-11-21)
 
 - **Category tree**: categories like `Cooking / Baking` show as a tree you can fold open. Right-click a parent to keep only the sub-category names, or to merge the sub-categories into it. Renaming a parent moves its sub-categories along

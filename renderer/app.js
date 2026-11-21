@@ -878,7 +878,8 @@ function ago(ms) {
 async function refreshExtDialog() {
   const [info, ff] = await Promise.all([window.api.bridgeInfo(), window.api.bridgeFirefox()]);
   $('#ext-folder').textContent = info.folder;
-  $('#ext-ff-folder').textContent = ff.error ? `Couldn't prepare the Firefox version: ${ff.error}` : ff.folder;
+  $('#ext-ff-file').textContent = ff.error ? `Couldn't prepare the Firefox version: ${ff.error}` : ff.folder + '\\manifest.json';
+  $('#ext-ff-copy').disabled = !!ff.error;
   $('#ext-token').textContent = info.token;
   const seen = (info.contacts || []).map(c => `${esc(c.browser)} (${ago(c.at)})`).join(', ');
   $('#ext-status').innerHTML = info.error
@@ -908,6 +909,7 @@ $('#ext-new').onclick = async () => {
   await refreshExtDialog();
 };
 $('#ext-ff-open').onclick = () => window.api.bridgeOpenFirefoxFolder();
+$('#ext-ff-copy').onclick = async () => { await window.api.copyText($('#ext-ff-file').textContent); toast('Copied. Paste it into the File name box in Firefox.'); };
 $('#ext-ff-howto').onclick = (e) => { e.preventDefault(); window.api.open(FIREFOX_SIGN_URL); };
 for (const id of ['#ext-url-chrome', '#ext-url-edge', '#ext-url-firefox']) {
   $(id).title = 'Click to copy';

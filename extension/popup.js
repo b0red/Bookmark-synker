@@ -28,13 +28,18 @@ const store = {
 };
 
 async function call(path, token, body) {
-  const res = await fetch(BASE + path, {
-    method: body ? 'POST' : 'GET',
-    headers: { 'Content-Type': 'application/json', 'X-Bookmark-Syncer-Token': token, 'X-Bookmark-Syncer-Browser': browserName() },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch(BASE + path, {
+      method: body ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json', 'X-Bookmark-Syncer-Token': token, 'X-Bookmark-Syncer-Browser': browserName() },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    throw Object.assign(new Error('Could not reach the app. Is Bookmark syncer open?'), { code: 0, detail: String(e && e.message || e) });
+  }
   if (res.status === 401) throw Object.assign(new Error('wrong pairing code'), { code: 401 });
-  if (!res.ok) throw new Error(`The app answered ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(`The app answered with error ${res.status}.`), { code: res.status });
   return res.json();
 }
 
@@ -97,7 +102,7 @@ $('#pair-save').onclick = async () => {
   try {
     await call('/v1/hello', code);
   } catch (e) {
-    $('#pair-error').textContent = e.code === 401 ? "That code doesn't match. Copy it again from the app." : 'Could not reach the app. Is Bookmark syncer open?';
+    $('#pair-error').textContent = e.code === 401 ? "That code doesn't match. Copy it again from the app." : e.message;
     $('#pair-error').classList.remove('hidden');
     return;
   }
