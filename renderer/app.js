@@ -985,6 +985,23 @@ $('#btn-info').onclick = async () => {
 $('#info-close').onclick = () => $('#dlg-info').close();
 // The full guide lives in the GitHub README (the repo is private, so it needs your GitHub sign-in).
 const README_URL = 'https://github.com/b0red/Bookmark-synker#readme';
+
+// Donation links in the ? panel. The section stays hidden while this list is empty.
+const SUPPORT_LINKS = [
+  { label: '☕ Leave a tip on Ko-fi', url: 'https://ko-fi.com/patrickosterlund', primary: true },
+];
+(function supportLinks() {
+  const box = $('#support .support-links');
+  for (const l of SUPPORT_LINKS) {
+    const b = document.createElement('button');
+    b.className = 'support-link' + (l.primary ? ' primary' : '');
+    b.textContent = l.label;
+    b.title = l.url;
+    b.onclick = () => window.api.open(l.url); // opens in your default browser
+    box.append(b);
+  }
+  $('#support').classList.toggle('hidden', !SUPPORT_LINKS.length);
+})();
 const FIREFOX_SIGN_URL = 'https://github.com/b0red/Bookmark-synker/blob/main/docs/INSTALL.md#firefox-keep-it-installed';
 $('#info-more').onclick = (e) => { e.preventDefault(); window.api.open(README_URL); };
 

@@ -259,3 +259,8 @@ body.dragging-bookmarks .nav-item[data-value="favorites"] { outline: 1px dashed 
 /* Global shortcut field */
 input.hotkey { width: 11em; display: inline-block; margin: 0 0 0 4px; padding: 2px 6px; text-align: center; cursor: pointer; font-family: inherit; }
 input.hotkey:focus { outline: 2px solid var(--accent); }
+
+/* Donation links in the ? panel */
+.support { margin: 14px 0 4px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 13px; }
+.support p { margin: 0 0 8px; line-height: 1.4; }
+.support-links { display: flex; flex-wrap: wrap; gap: 8px; }

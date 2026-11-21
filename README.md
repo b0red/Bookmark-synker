@@ -91,3 +91,9 @@ Built with Electron and sql.js (SQLite compiled to WebAssembly, so no native bui
 ## License
 
 [GPL-3.0](LICENSE)
+
+## Support
+
+Bookmark syncer is free and open source. If it helped you clean up and organize your bookmarks, you can leave a tip:
+
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Leave_a_tip-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/patrickosterlund)

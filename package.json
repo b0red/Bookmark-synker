@@ -1,7 +1,7 @@
 {
   "name": "bookmark-syncer",
   "productName": "Bookmark syncer",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Import bookmarks from all your browsers into one organized library.",
   "main": "main.js",
   "private": true,

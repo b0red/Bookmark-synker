@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2 (2026-11-21)
+
+- **Ko-fi tip link** at the bottom of the ? help panel (opens in your browser) and in the README. `.github/FUNDING.yml` adds GitHub's Sponsor button once the repository is public
+
 ## 0.9.1 (2026-11-21)
 
 - **Fixed: the Firefox extension couldn't connect** ("Could not reach the app"). The app didn't allow one of the extension's headers, which Firefox checks and Chrome doesn't
