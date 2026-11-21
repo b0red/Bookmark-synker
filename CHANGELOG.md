@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0 (2026-11-21)
+
+- **Category tree**: categories like `Cooking / Baking` show as a tree you can fold open. Right-click a parent to keep only the sub-category names, or to merge the sub-categories into it. Renaming a parent moves its sub-categories along
+- **Near-duplicates**: *Possible duplicates* finds the same page under different URLs (`m.` and AMP pages, `youtu.be`, `index.html`, same title on the same page). **Keep this one** merges the others into it: browsers, folders, tags and notes come along, and the merged URLs keep pointing at it on future imports. *Merge all* (right-click the view) and *Not duplicates*, all with Undo
+- **Drag and drop** bookmarks or a selection onto a category, *Uncategorized*, *Favorites* or *Read later*
+- **Import automatically** when the app starts and while it's open (only profiles you imported before; Firefox at most every 10 minutes). Settings to turn it off
+- **Categories as folders**: the extension can sort the browser's bookmarks into *Other bookmarks → Bookmark syncer → <category>* folders, with a preview and an exact Undo. Bookmarks are only moved, never deleted
+- **Read later**: a queue with its own view, a button in the details pane and the selection bar, and a weekly reminder about unread bookmarks (can be turned off). Opening a bookmark from the app is remembered
+- **Search from anywhere** with <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> (changeable), a **tray icon**, closing to the tray, and an optional *Start with Windows*. Only one copy of the app runs at a time
+- README: a screenshot made from a made-up library (`node scripts/make-demo.js`)
+- Library saves retry briefly when Windows (a virus scanner or the indexer) holds the file
+
 ## 0.8.0 (2026-11-21)
 
 - **Firefox** support for the browser extension. The app builds a Firefox version in `%APPDATA%\Bookmark syncer\firefox-extension\`, and the setup window explains how to load it (temporary) or sign it privately (permanent). The first time, the extension asks you to allow access to the app

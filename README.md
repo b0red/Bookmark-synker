@@ -6,14 +6,22 @@ A Windows desktop app that reads the bookmarks from every browser on your PC (Ch
 
 Your browsers' own bookmarks are only **read**, except when you click **Sync to browsers** (or use the browser extension), which removes the ones you deleted after showing a preview.
 
+![Bookmark syncer with a made-up library: category tree, a bookmark in Read later, and its details](docs/screenshot.png)
+
 ## Features
 
 | | |
 |---|---|
 | **Import** | Finds every browser profile on the PC automatically. You can also import any exported `bookmarks.html`. Re-importing only adds what's new. |
 | **Merge duplicates** | URLs are cleaned up (tracking parameters, `www.`, trailing slashes), so the same page saved in three browsers becomes one entry that remembers every place it came from. |
+| **Near-duplicates** | *Possible duplicates* lists the same page under different URLs (`m.` and AMP pages, `youtu.be` links, `index.html`, same title on the same page). **Keep this one** merges the others into it (the browsers aren't touched), or mark them *Not duplicates*. With Undo. |
+| **Import automatically** | New bookmarks are imported when the app starts and while it's open (about once a minute; Firefox at most every 10 minutes). Only profiles you imported before. Settings to turn it off. |
 | **Auto-categorize** | Assigns a category and tags. Choose the engine in ⚙ Settings: **Built-in rules** (offline, instant), **Local AI** with Ollama (free, private), or **Claude** (best results, needs an API key). |
-| **Smart views** | Favorites, uncategorized, no visit history, not opened in a year, saved in several browsers, dead links, links with problems. |
+| **Smart views** | Favorites, Read later, uncategorized, no visit history, not opened in a year, saved in several browsers, possible duplicates, dead links, links with problems. |
+| **Category tree** | Categories with ` / ` in their name (`Cooking / Baking`) show as a tree you can fold open. Right-click a parent → *Keep only the sub-category names* or *Merge sub-categories into this one*. |
+| **Drag and drop** | Drag bookmarks (or a selection) onto a category, *Uncategorized*, *Favorites* or *Read later* in the sidebar. Hovering over a closed category opens it. |
+| **Read later** | A queue: the *Read later* button in the details pane, in the selection bar, or drag onto *Read later*. **✓ Done reading** takes it out. At most once a week the app reminds you about unread ones (or recent bookmarks you never opened). |
+| **Search from anywhere** | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> opens the app with the search box ready, from any program. The app can keep running in the tray and start with Windows. Change the keys in ⚙ Settings. |
 | **Select & change many** | Tick bookmarks (or Ctrl+click / Shift+click, Ctrl+A for all), then **Set category…**, **Tags…** (add or remove), **★ Favorite / ☆ Unfavorite** or **Delete selected** (<kbd>Del</kbd>). Every change has an **Undo** button. |
 | **Help panel** | The **?** button explains the colors, the workflow and the shortcuts, with a link to this README. |
 | **Recently deleted** | Lists everything you deleted, newest first. **Restore** one, a selection, or right-click → *Restore all*. Restored links are imported again in the future. |
@@ -21,6 +29,7 @@ Your browsers' own bookmarks are only **read**, except when you click **Sync to 
 | **Tidy categories** | Right-click a category → *Rename or merge…* (type an existing name to merge), *Remove category* or *Delete all*. All with Undo. |
 | **Sync to browsers** | Removes what you deleted here from the browsers' own bookmarks too. It shows a preview first, needs the browser closed, and backs up every file. **Restore from backup…** puts any of those files back. |
 | **Browser extension** | For Chrome, Edge, Brave, Vivaldi, Opera and Firefox: the *Bookmark syncer helper* deletes through the browser itself while it's open, so the browser's sync passes the deletions to all your devices. Preview, one click, Undo. See [docs/INSTALL.md](docs/INSTALL.md#7-the-browser-extension). |
+| **Categories as folders** | The extension can also **sort the browser's bookmarks into folders** by their category (*Other bookmarks → Bookmark syncer → Cooking → Baking*). It only moves them, shows a preview, and **Undo** puts each one back exactly where it was. |
 | **Resizable sidebar** | Drag the edge of the library pane to make it wider or narrower (double-click the edge to reset). The width is remembered. |
 | **Search** | Free text, or filters: `tag:python`, `cat:cooking`, `site:github.com`, `in:firefox`. <kbd>Ctrl</kbd>+<kbd>K</kbd> focuses search, and <kbd>Enter</kbd> opens the top hit. |
 | **Check links** | Finds dead pages (404, domain gone) and offers the Wayback Machine copy. |
@@ -48,7 +57,7 @@ Everything is stored locally in `%APPDATA%\Bookmark syncer\`. Versions before 0.
 | File | Contents |
 |---|---|
 | `library.sqlite` | Your library (bookmarks, categories, tags, notes, deleted-link list) |
-| `settings.json` | Which categorizer to use, Ollama model, the extension pairing code |
+| `settings.json` | Which categorizer to use, Ollama model, import, shortcut and tray options, the extension pairing code |
 | `anthropic-key.bin` | Your Claude API key, encrypted with your Windows account (only if you saved one) |
 
 To back up your library, copy `library.sqlite`. To start over, delete it.
@@ -71,8 +80,10 @@ To back up your library, copy `library.sqlite`. To start over, delete it.
 
 ```powershell
 npm test       # library tests, "sync to browsers" on COPIES of your browser files (the real ones aren't touched),
-               # and the extension bridge + logic on in-memory copies of your bookmark trees
+               # the extension bridge + logic on in-memory copies of your bookmark trees, duplicates,
+               # automatic import and Read later on throwaway libraries
 npm run smoke  # prints bookmark counts per browser profile
+node scripts/make-demo.js  # remakes docs/screenshot.png from a made-up library
 ```
 
 Built with Electron and sql.js (SQLite compiled to WebAssembly, so no native build tools are needed).

@@ -129,6 +129,15 @@ Firefox Developer Edition and Nightly can also install unsigned add-ons: set `xp
 3. Click **Delete them in this browser**. The app shows a message when it's done.
 4. Changed your mind? Click **Undo** in the extension to put the last run back in the same folders and positions. To keep them for good, also restore them under *Recently deleted* in the app.
 
+**Sorting into folders by category**
+
+1. Categorize your bookmarks in the app.
+2. With the app open, click the extension's icon, then **Sort into folders by category…**. It shows how many bookmarks go into which folder.
+3. Click **Sort them**. They move to *Other bookmarks* (*Other favorites* in Edge) **→ Bookmark syncer → category → sub-category**. Your browser sync moves them on your other devices too.
+4. **Undo sorting** moves each one back to its old folder and position, and removes the folders it made (if they're empty).
+
+Bookmarks are only moved, never deleted. Run it again after categorizing more; bookmarks already in the right folder are left alone.
+
 **How it stays private and safe**
 
 - The app listens only on `127.0.0.1` (port 47615, this PC only) and only while it's open.
@@ -139,6 +148,14 @@ Firefox Developer Edition and Nightly can also install unsigned add-ons: set `xp
 - Firefox: the extension talks to the app only after you click **Allow** in it.
 
 **Updating the extension**: after `git pull`, open the extensions page and click the reload icon on *Bookmark syncer helper*. In Firefox, open the app's setup window (to rebuild the Firefox version), then click **Reload** in `about:debugging`, or sign and install the new version.
+
+## 8. Search from anywhere and the tray
+
+Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> in any program to bring up the app with the search box ready. Type, then <kbd>Enter</kbd> opens the top result.
+
+- Closing the window keeps the app running in the tray (the icon near the clock), so the shortcut keeps working. Right-click the tray icon → **Quit** to close it for real.
+- In ⚙ Settings → *Shortcut and tray* you can change the keys (click the field, press the new keys), turn the shortcut off, keep or stop closing to the tray, and **Start with Windows**.
+- If another program already uses the keys, Settings says so. Pick other keys.
 
 ## Troubleshooting
 
@@ -157,6 +174,8 @@ Firefox Developer Edition and Nightly can also install unsigned add-ons: set `xp
 | Sync: "Firefox did not shut down cleanly" | Open Firefox, close it normally, then try again. |
 | Bookmarks came back after syncing (Chrome/Edge) | Browser sync restores file edits. Use the browser extension (section 7). |
 | Extension: "Bookmark syncer isn't running" | Open the app, then click **Try again**. If the app's extension window says the port is in use, the app is probably open twice. |
+| The shortcut does nothing | Another program has the same keys. ⚙ Settings shows this; pick other keys. |
+| The app seems gone after closing it | It's in the tray (near the clock, maybe under the ^ arrow). Turn off *Closing the window keeps the app running in the tray* if you prefer. |
 | Extension: "That code doesn't match" | Copy the code again from the app (it changes if you click **New code**). |
 
 ## Updating
@@ -171,4 +190,4 @@ Your library is kept in `%APPDATA%\Bookmark syncer\` and isn't touched by update
 
 ## Uninstalling
 
-Delete the project folder and `%APPDATA%\Bookmark syncer\`.
+If you turned on *Start with Windows*, turn it off in ⚙ Settings first. Then quit the app (tray icon → Quit) and delete the project folder and `%APPDATA%\Bookmark syncer\`.
