@@ -35,7 +35,7 @@ The renderer runs with `contextIsolation: true` and `nodeIntegration: false`. It
 | `bookmarks` | One row per unique (normalized) URL: title, domain, original folder, category, notes, favorite, dates, visit count, link status |
 | `sources` | Which browser profile and folder each bookmark came from (many per bookmark) |
 | `tags` | Tags per bookmark |
-| `removed` | Normalized URLs the user deleted, so re-imports skip them |
+| `removed` | URLs the user deleted (so re-imports skip them) plus a JSON snapshot of each bookmark for "Recently deleted" / Restore |
 
 ## Categorizers
 

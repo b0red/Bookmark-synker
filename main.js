@@ -97,6 +97,8 @@ ipcMain.handle('import:html', async () => {
 ipcMain.handle('library:list', () => lib.list());
 ipcMain.handle('bookmark:update', (_e, id, patch) => lib.update(id, patch));
 ipcMain.handle('bookmark:remove', (_e, ids) => lib.remove(ids));
+ipcMain.handle('deleted:list', () => lib.listRemoved());
+ipcMain.handle('deleted:restore', (_e, ids) => lib.restore(ids));
 ipcMain.handle('open:url', (_e, url) => openExternal(url));
 
 // Sync deletions to browsers: preview what would be removed, then remove it from the chosen profiles.

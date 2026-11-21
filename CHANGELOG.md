@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 (2026-11-21)
+
+- **Recently deleted** view: see everything you deleted, open it, and **Restore** one, a selection or all (right-click). Restored links are no longer skipped on import
+- **Undo** button after every delete
+- Deleting now saves a full snapshot (title, category, tags, notes, favorite, sources). Links deleted earlier restore as the URL only; importing again fills in the rest
+
 ## 0.2.1 (2026-11-21)
 
 - Opera (and Opera GX) profiles are now found by Import and Sync to browsers (newer Opera keeps bookmarks in `Opera Stable\Default`)

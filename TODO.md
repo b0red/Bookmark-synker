@@ -2,7 +2,6 @@
 
 ## Next up
 
-- [ ] **Undo for deletes**: a "Recently deleted" view that can restore links, and clear them from the skip list
 - [ ] **Bulk actions on the selection**: change category, add tags, favorite (delete is done)
 - [ ] **Chrome/Edge sync**: find a way to delete that the sync server respects (e.g. a small browser extension using the bookmarks API)
 - [ ] **Restore from backup** button in the Sync dialog

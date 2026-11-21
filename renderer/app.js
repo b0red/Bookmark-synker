@@ -10,6 +10,7 @@ const state = {
   sort: 'added',
   selectedId: null,
   visible: [],
+  deleted: [],        // "Recently deleted" entries (negative ids)
   checked: new Set(), // multi-selection (checkboxes)
   anchor: null,       // last clicked row, for Shift+click ranges
 };
@@ -24,6 +25,7 @@ const SMART = [
   { id: 'dead', name: 'Dead links', test: b => b.status === 'dead' },
   { id: 'warn', name: 'Links with problems', test: b => b.status === 'warn' },
   { id: 'unchecked', name: 'Not checked yet', test: b => !b.status },
+  { id: 'deleted', name: 'Recently deleted', test: () => false }, // lists state.deleted, see computeVisible
 ];
 
 // ---------- helpers ----------
@@ -44,9 +46,17 @@ function countBy(list, keyFn) {
   for (const x of list) for (const k of [].concat(keyFn(x))) if (k) m.set(k, (m.get(k) || 0) + 1);
   return [...m.entries()];
 }
-function toast(msg, ms = 4000) {
+// Optional action shows a button in the toast, e.g. { label: 'Undo', fn }.
+function toast(msg, ms = 4000, action = null) {
   const t = $('#toast');
   t.textContent = msg;
+  if (action) {
+    const b = document.createElement('button');
+    b.className = 'toast-action';
+    b.textContent = action.label;
+    b.onclick = () => { t.classList.add('hidden'); action.fn(); };
+    t.append(' ', b);
+  }
   t.classList.remove('hidden');
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => t.classList.add('hidden'), ms);
@@ -92,8 +102,14 @@ const SORTS = {
   used: (a, b) => (b.last_used_at || 0) - (a.last_used_at || 0),
 };
 
+function isDeletedView() { return state.view.type === 'smart' && state.view.value === 'deleted'; }
+
 function computeVisible() {
   const terms = parseQuery(state.query);
+  if (isDeletedView()) {
+    state.visible = state.deleted.filter(b => matchesQuery(b, terms));
+    return; // newest deletion first
+  }
   state.visible = state.items.filter(b => matchesView(b) && matchesQuery(b, terms)).sort(SORTS[state.sort]);
 }
 
@@ -108,7 +124,7 @@ function renderSidebar() {
   const items = state.items;
   let html = '<h3>Library</h3>';
   for (const s of SMART) {
-    const n = items.filter(s.test).length;
+    const n = s.id === 'deleted' ? state.deleted.length : items.filter(s.test).length;
     if (n || ['all', 'favorites', 'uncategorized'].includes(s.id)) html += navItem('smart', s.id, s.name, n);
   }
   const cats = countBy(items, b => b.category).sort((a, b) => a[0].localeCompare(b[0]));
@@ -150,6 +166,7 @@ function favicon(b) {
 function renderList() {
   computeVisible();
   $('#view-title').textContent = viewName();
+  $('#sort').classList.toggle('hidden', isDeletedView()); // deleted view is always newest first
   $('#view-count').textContent = `${state.visible.length} bookmark${state.visible.length === 1 ? '' : 's'}`;
   $('#empty').classList.toggle('hidden', state.items.length > 0);
 
@@ -166,7 +183,7 @@ function renderList() {
       ${favicon(b)}
       <div class="main-col"><div class="t">${b.favorite ? '<span class="star">★</span> ' : ''}${esc(b.title || b.url)}</div>
       <div class="u">${esc(b.domain)}${b.folder ? ' · ' + esc(b.folder) : ''}</div></div>
-      <div class="meta">${b.category ? `<span class="chip cat">${esc(b.category)}</span>` : ''}${status}</div>
+      <div class="meta">${b.deleted ? `<span class="muted small">deleted ${fmtDate(b.removed_at)}</span>` : ""}${b.category ? `<span class="chip cat">${esc(b.category)}</span>` : ''}${b.deleted ? "" : status}</div>
     </li>`;
   }).join('');
   $('#list').innerHTML = html;
@@ -181,11 +198,33 @@ function renderList() {
   }
 }
 
+function renderDeletedDetail(el, b) {
+  el.innerHTML = `
+    <button class="close icon" id="d-close" title="Close">✕</button>
+    <h3 class="d-title">${esc(b.title || b.url)}</h3>
+    <div class="url"><a href="#" id="d-url">${esc(b.url)}</a></div>
+    <div class="btns">
+      <button class="primary" id="d-restore">Restore</button>
+      <button id="d-open">Open</button>
+    </div>
+    <div class="facts">
+      <span>Deleted</span><b>${fmtDate(b.removed_at)}</b>
+      <span>Category</span><b>${esc(b.category || '—')}</b>
+      <span>Tags</span><b>${esc(b.tags.join(', ') || '—')}</b>
+      <span>Saved in</span><b>${[...new Set(b.sources.map(s => s.source))].map(esc).join('<br>') || '—'}</b>
+    </div>
+    ${b.hasSnapshot ? '' : '<p class="muted small">Deleted before details were saved. Restoring brings back the link; import again to fill in the title and folders.</p>'}`;
+  $('#d-close').onclick = () => { state.selectedId = null; renderList(); renderDetail(); };
+  $('#d-open').onclick = $('#d-url').onclick = (e) => { e.preventDefault(); window.api.open(b.url); };
+  $('#d-restore').onclick = () => restoreBookmarks([b.id]);
+}
+
 function renderDetail() {
   const el = $('#detail');
-  const b = state.items.find(x => x.id === state.selectedId);
+  const b = state.items.find(x => x.id === state.selectedId) || state.deleted.find(x => x.id === state.selectedId);
   if (!b) { el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
+  if (b.deleted) return renderDeletedDetail(el, b);
   const cats = [...new Set(state.items.map(x => x.category).filter(Boolean))].sort();
   const browsers = [...new Set(b.sources.map(s => s.source))];
   const statusText = { ok: 'Working', dead: 'Dead', warn: 'Problem', skipped: 'Not a web link' }[b.status] || 'Not checked';
@@ -216,12 +255,7 @@ function renderDetail() {
   $('#d-open').onclick = $('#d-url').onclick = (e) => { e.preventDefault(); window.api.open(b.url); };
   $('#d-fav').onclick = () => save({ favorite: b.favorite ? 0 : 1 });
   if ($('#d-wayback')) $('#d-wayback').onclick = () => window.api.open('https://web.archive.org/web/2/' + b.url);
-  $('#d-remove').onclick = async () => {
-    if (!confirm(`Remove "${b.title || b.url}" from the library?\n\nYour browsers' bookmarks are not touched.`)) return;
-    await window.api.remove([b.id]);
-    state.selectedId = null;
-    await reload();
-  };
+  $('#d-remove').onclick = () => deleteBookmarks([b.id], `“${b.title || b.url}”`);
   $('#d-title').onchange = (e) => save({ title: e.target.value });
   $('#d-cat').onchange = (e) => save({ category: e.target.value.trim() || null });
   $('#d-tags').onchange = (e) => save({ tags: e.target.value.split(',') });
@@ -231,7 +265,8 @@ function renderDetail() {
 function renderAll() { renderSidebar(); renderList(); renderDetail(); }
 
 async function reload() {
-  state.items = await window.api.list();
+  [state.items, state.deleted] = await Promise.all([window.api.list(), window.api.listDeleted()]);
+  if (isDeletedView() && !state.deleted.length) state.view = { type: 'smart', value: 'all' };
   renderAll();
 }
 
@@ -503,6 +538,10 @@ function syncChecks() {
     li.querySelector('.pick').checked = on;
   }
   const n = state.checked.size;
+  const del = isDeletedView();
+  $('#sel-delete').classList.toggle('hidden', del);
+  $('#sel-restore').classList.toggle('hidden', !del);
+  $('#sel-hint').textContent = 'Ctrl+click or Shift+click to select more' + (del ? '' : ' · Del deletes');
   $('#selbar').classList.toggle('hidden', n === 0);
   $('#list').classList.toggle('picking', n > 0);
   $('#sel-count').textContent = `${n} selected`;
@@ -532,11 +571,22 @@ function clearChecks() { state.checked.clear(); state.anchor = null; syncChecks(
 async function deleteBookmarks(ids, what) {
   if (!ids.length) return;
   if (!confirm(`Delete ${what} from the library?\n\nFuture imports will skip these links. To remove them from your browsers too, use “Sync to browsers”.`)) return;
+  const norms = new Set(state.items.filter(b => ids.includes(b.id)).map(b => b.norm));
   await window.api.remove(ids);
   if (ids.includes(state.selectedId)) state.selectedId = null;
   for (const id of ids) state.checked.delete(id);
   await reload();
-  toast(`Deleted ${ids.length} bookmark${ids.length === 1 ? '' : 's'}.`);
+  const undo = () => restoreBookmarks(state.deleted.filter(d => norms.has(d.norm)).map(d => d.id));
+  toast(`Deleted ${ids.length} bookmark${ids.length === 1 ? '' : 's'}.`, 8000, { label: 'Undo', fn: undo });
+}
+
+async function restoreBookmarks(ids) {
+  if (!ids.length) return;
+  const n = await window.api.restore(ids);
+  if (ids.includes(state.selectedId)) state.selectedId = null;
+  for (const id of ids) state.checked.delete(id);
+  await reload();
+  toast(`Restored ${n} bookmark${n === 1 ? '' : 's'}. Future imports include ${n === 1 ? 'it' : 'them'} again.`);
 }
 
 $('#pick-all').addEventListener('change', (e) => {
@@ -548,6 +598,7 @@ $('#sel-delete').onclick = () => {
   const n = state.checked.size;
   deleteBookmarks([...state.checked], `${n} selected bookmark${n === 1 ? '' : 's'}`);
 };
+$('#sel-restore').onclick = () => restoreBookmarks([...state.checked]);
 
 // Right-click on a cleanup view (e.g. "Dead links") offers to delete everything in it.
 const DELETABLE_VIEWS = new Set(['stale', 'dead', 'warn']);
@@ -556,15 +607,30 @@ function hideMenu() { $('#ctxmenu').classList.add('hidden'); }
 
 $('#sidebar').addEventListener('contextmenu', (e) => {
   const el = e.target.closest('.nav-item[data-type="smart"]');
-  if (!el || !DELETABLE_VIEWS.has(el.dataset.value)) return;
+  if (!el) return;
+  const menu = $('#ctxmenu');
+  const place = () => {
+    menu.style.left = Math.min(e.clientX, innerWidth - 240) + 'px';
+    menu.style.top = Math.min(e.clientY, innerHeight - 60) + 'px';
+    menu.classList.remove('hidden');
+  };
+  if (el.dataset.value === 'deleted') {
+    e.preventDefault();
+    const n = state.deleted.length;
+    menu.innerHTML = `<button data-act="restore-all">Restore all ${n}</button>`;
+    place();
+    menu.querySelector('[data-act="restore-all"]').onclick = () => {
+      hideMenu();
+      if (confirm(`Restore all ${n} deleted bookmarks to the library?`)) restoreBookmarks(state.deleted.map(d => d.id));
+    };
+    return;
+  }
+  if (!DELETABLE_VIEWS.has(el.dataset.value)) return;
   e.preventDefault();
   const view = SMART.find(s => s.id === el.dataset.value);
   const targets = state.items.filter(view.test);
-  const menu = $('#ctxmenu');
   menu.innerHTML = `<button class="danger" data-act="delete-all">Delete all ${targets.length} in “${esc(view.name)}”</button>`;
-  menu.style.left = Math.min(e.clientX, innerWidth - 240) + 'px';
-  menu.style.top = Math.min(e.clientY, innerHeight - 60) + 'px';
-  menu.classList.remove('hidden');
+  place();
   menu.querySelector('[data-act="delete-all"]').onclick = () => {
     hideMenu();
     deleteBookmarks(targets.map(b => b.id), `all ${targets.length} bookmarks in “${view.name}”`);
@@ -619,7 +685,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     state.visible.forEach(b => state.checked.add(b.id));
     syncChecks();
-  } else if (e.key === 'Delete' && state.checked.size) {
+  } else if (e.key === 'Delete' && state.checked.size && !isDeletedView()) {
     $('#sel-delete').click();
   } else if (e.key === 'Escape' && state.checked.size) {
     clearChecks();

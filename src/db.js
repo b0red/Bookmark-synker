@@ -50,6 +50,8 @@ class Library {
     lib.file = file;
     lib.db = fs.existsSync(file) ? new SQL.Database(fs.readFileSync(file)) : new SQL.Database();
     lib.db.run(SCHEMA);
+    // 0.3: deleted bookmarks keep a snapshot so they can be restored.
+    if (!lib.all('PRAGMA table_info(removed)').some(c => c.name === 'data')) lib.run('ALTER TABLE removed ADD COLUMN data TEXT');
     return lib;
   }
 
@@ -170,14 +172,73 @@ class Library {
     this.run('BEGIN');
     const now = Date.now();
     for (const id of ids) {
-      const row = this.get('SELECT norm FROM bookmarks WHERE id = ?', [id]);
-      if (row) this.run('INSERT OR REPLACE INTO removed (norm, removed_at) VALUES (?, ?)', [row.norm, now]);
+      const row = this.get('SELECT * FROM bookmarks WHERE id = ?', [id]);
+      if (row) {
+        // Keep everything about the bookmark so "Recently deleted" can restore it fully.
+        const snapshot = {
+          ...row,
+          tags: this.all('SELECT tag FROM tags WHERE bookmark_id = ?', [id]).map(t => t.tag),
+          sources: this.all('SELECT source, folder FROM sources WHERE bookmark_id = ?', [id]),
+        };
+        this.run('INSERT OR REPLACE INTO removed (norm, removed_at, data) VALUES (?, ?, ?)', [row.norm, now, JSON.stringify(snapshot)]);
+      }
       this.run('DELETE FROM bookmarks WHERE id = ?', [id]);
       this.run('DELETE FROM tags WHERE bookmark_id = ?', [id]);
       this.run('DELETE FROM sources WHERE bookmark_id = ?', [id]);
     }
     this.run('COMMIT');
     this.save();
+  }
+
+  // Deleted bookmarks, newest first, shaped like list() rows. `id` is the negative rowid of the
+  // removed entry, so it never collides with a real bookmark id.
+  listRemoved() {
+    return this.all('SELECT rowid AS rid, norm, removed_at, data FROM removed ORDER BY removed_at DESC').map(r => {
+      let d = null;
+      try { d = r.data ? JSON.parse(r.data) : null; } catch {}
+      // Entries deleted before 0.3 only stored the normalized URL (no scheme); rebuild a usable link.
+      const url = d?.url || (/^[a-z][a-z0-9+.-]*:/i.test(r.norm) ? r.norm : 'https://' + r.norm);
+      return {
+        id: -r.rid, deleted: true, removed_at: r.removed_at, url, norm: r.norm,
+        title: d?.title || '', domain: d?.domain ?? domainOf(url), folder: d?.folder || '',
+        category: d?.category || null, notes: d?.notes || '', favorite: d?.favorite || 0,
+        added_at: d?.added_at || null, imported_at: d?.imported_at || r.removed_at,
+        last_used_at: d?.last_used_at || null, visit_count: d?.visit_count ?? null,
+        status: d?.status || null, status_code: d?.status_code || null,
+        tags: d?.tags || [], sources: d?.sources || [], hasSnapshot: !!d,
+      };
+    });
+  }
+
+  // Puts deleted bookmarks back (ids from listRemoved) and stops skipping them on import.
+  restore(removedIds) {
+    const byId = new Map(this.listRemoved().map(r => [r.id, r]));
+    let restored = 0;
+    this.run('BEGIN');
+    try {
+      for (const id of removedIds) {
+        const r = byId.get(id);
+        if (!r) continue;
+        this.run('DELETE FROM removed WHERE rowid = ?', [-id]);
+        restored++;
+        if (this.get('SELECT id FROM bookmarks WHERE norm = ?', [r.norm])) continue;
+        this.run(
+          `INSERT INTO bookmarks (url, norm, title, domain, folder, category, notes, favorite, added_at, last_used_at,
+             visit_count, imported_at, status, status_code)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [r.url, r.norm, r.title, r.domain, r.folder, r.category, r.notes, r.favorite, r.added_at, r.last_used_at,
+           r.visit_count, r.imported_at, r.status, r.status_code]);
+        const newId = this.get('SELECT last_insert_rowid() AS id').id;
+        for (const t of r.tags) this.run('INSERT OR IGNORE INTO tags (bookmark_id, tag) VALUES (?, ?)', [newId, t]);
+        for (const s of r.sources) this.run('INSERT OR IGNORE INTO sources (bookmark_id, source, folder) VALUES (?, ?, ?)', [newId, s.source, s.folder || '']);
+      }
+      this.run('COMMIT');
+    } catch (e) {
+      this.run('ROLLBACK');
+      throw e;
+    }
+    this.save();
+    return restored;
   }
 }
 

@@ -12,7 +12,8 @@ Your browsers' own bookmarks are only **read**, except when you click **Sync to 
 | **Merge duplicates** | URLs are cleaned up (tracking parameters, `www.`, trailing slashes), so the same page saved in three browsers becomes one entry that remembers every place it came from. |
 | **Auto-categorize** | Assigns a category and tags. Choose the engine in ⚙ Settings: **Built-in rules** (offline, instant), **Local AI** with Ollama (free, private), or **Claude** (best results, needs an API key). |
 | **Smart views** | Favorites, uncategorized, no visit history, not opened in a year, saved in several browsers, dead links, links with problems. |
-| **Select & delete** | Tick bookmarks (or Ctrl+click / Shift+click, Ctrl+A for all), then **Delete selected** or press <kbd>Del</kbd>. |
+| **Select & delete** | Tick bookmarks (or Ctrl+click / Shift+click, Ctrl+A for all), then **Delete selected** or press <kbd>Del</kbd>. Every delete has an **Undo** button. |
+| **Recently deleted** | Lists everything you deleted, newest first. **Restore** one, a selection, or right-click → *Restore all*. Restored links are imported again in the future. |
 | **Clean up** | Right-click **Not opened in a year**, **Dead links** or **Links with problems** → *Delete all*. Deleted links stay deleted on future imports. |
 | **Sync to browsers** | Removes what you deleted here from the browsers' own bookmarks too. It shows a preview first, needs the browser closed, and backs up every file. |
 | **Search** | Free text, or filters: `tag:python`, `cat:cooking`, `site:github.com`, `in:firefox`. <kbd>Ctrl</kbd>+<kbd>K</kbd> focuses search, and <kbd>Enter</kbd> opens the top hit. |

@@ -50,6 +50,32 @@ const { detectSources, parseChromium, parseFirefox } = require('../src/importers
   assert.ok(skipped >= 5);
   assert.strictEqual((await Library.open(file)).list().length, first.length - 5);
 
+  // Recently deleted: full snapshot, restore puts it back with its edits, and imports include it again.
+  const lib4 = await Library.open(file);
+  const victim = lib4.list()[0];
+  lib4.update(victim.id, { category: 'Keep', tags: ['x', 'y'], notes: 'important', favorite: 1 });
+  lib4.remove([victim.id]);
+  const entry = lib4.listRemoved().find(r => r.norm === victim.norm);
+  assert.ok(entry && entry.hasSnapshot && entry.id < 0, 'deleted entry listed with snapshot');
+  assert.strictEqual(entry.category, 'Keep');
+  assert.strictEqual(lib4.restore([entry.id]), 1);
+  const back = (await Library.open(file)).list().find(b => b.norm === victim.norm);
+  assert.ok(back, 'restored bookmark is back');
+  assert.strictEqual(back.category, 'Keep');
+  assert.deepStrictEqual(back.tags, ['x', 'y']);
+  assert.strictEqual(back.notes, 'important');
+  assert.strictEqual(back.favorite, 1);
+  assert.deepStrictEqual(back.sources.map(s => s.source).sort(), victim.sources.map(s => s.source).sort());
+  assert.ok(!lib4.removedNorms().includes(victim.norm), 'no longer skipped on import');
+  // Old-style entries (URL only, from before 0.3) still restore.
+  lib4.run('INSERT INTO removed (norm, removed_at) VALUES (?, ?)', ['example.org/old', Date.now()]);
+  const old = lib4.listRemoved().find(r => r.norm === 'example.org/old');
+  assert.strictEqual(old.url, 'https://example.org/old');
+  assert.strictEqual(old.hasSnapshot, false);
+  lib4.restore([old.id]);
+  assert.ok(lib4.list().some(b => b.norm === 'example.org/old'));
+  console.log('Recently deleted / restore: OK');
+
   const multi = first.filter(b => new Set(b.sources.map(s => s.source)).size > 1).length;
   const never = first.filter(b => !b.last_used_at && !b.visit_count).length;
   console.log(`In several browsers: ${multi}, never opened: ${never}`);

@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('api', {
   update: (id, patch) => ipcRenderer.invoke('bookmark:update', id, patch),
   remove: (ids) => ipcRenderer.invoke('bookmark:remove', ids),
   open: (url) => ipcRenderer.invoke('open:url', url),
+  listDeleted: () => ipcRenderer.invoke('deleted:list'),
+  restore: (ids) => ipcRenderer.invoke('deleted:restore', ids),
   browserSyncPlan: () => ipcRenderer.invoke('browsers:plan'),
   browserSyncApply: (labels) => ipcRenderer.invoke('browsers:apply', labels),
   revealFile: (file) => ipcRenderer.invoke('browsers:reveal', file),
