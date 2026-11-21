@@ -11,6 +11,7 @@ const browserSync = require('./src/browsersync');
 const { startBridge, newToken } = require('./src/bridge');
 const { buildFirefox } = require('./src/extbuild');
 const { pickKeeper } = require('./src/duplicates');
+const { createAutoImporter } = require('./src/autoimport');
 
 let win, lib;
 const dataDir = () => app.getPath('userData');
@@ -56,7 +57,7 @@ async function loadKey() {
 // ---------- settings ----------
 
 const settingsFile = () => path.join(dataDir(), 'settings.json');
-const DEFAULT_SETTINGS = { categorizer: 'rules', ollamaModel: 'qwen2.5:3b' };
+const DEFAULT_SETTINGS = { categorizer: 'rules', ollamaModel: 'qwen2.5:3b', importOnStart: true, watchBrowsers: true };
 
 function loadSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; } catch { return { ...DEFAULT_SETTINGS }; }
@@ -66,12 +67,16 @@ function loadSettings() {
 
 ipcMain.handle('sources:detect', () => detectSources());
 
+function importSource(s) {
+  const items = s.type === 'firefox' ? parseFirefox(s.path, lib.SQL) : parseChromium(s.path);
+  return { found: items.length, ...lib.importItems(items, s.label) };
+}
+
 ipcMain.handle('import:sources', async (_e, sources) => {
   const results = [];
   for (const s of sources) {
     try {
-      const items = s.type === 'firefox' ? parseFirefox(s.path, lib.SQL) : parseChromium(s.path);
-      results.push({ label: s.label, found: items.length, ...lib.importItems(items, s.label) });
+      results.push({ label: s.label, ...importSource(s) });
     } catch (e) {
       results.push({ label: s.label, error: /EBUSY|locked/i.test(e.message) ? 'File is locked. Close the browser and try again.' : e.message });
     }
@@ -155,8 +160,25 @@ ipcMain.handle('settings:get', () => {
 ipcMain.handle('settings:save', (_e, patch) => {
   const { bridgeToken, ...safe } = patch || {};
   const { bridgeToken: _t, ...rest } = saveSettings(safe);
+  if ('watchBrowsers' in safe && autoImport) { if (rest.watchBrowsers) autoImport.start(); else autoImport.stop(); }
   return rest;
 });
+
+// ---------- automatic import ----------
+
+let autoImport = null;
+function setupAutoImport() {
+  autoImport = createAutoImporter({
+    getSources: detectSources,
+    importedLabels: () => lib.all('SELECT DISTINCT source FROM sources').map(r => r.source),
+    importSource,
+    onImported: (results) => send('auto-import', results),
+  });
+  if (process.env.BMLIB_NO_AUTOIMPORT) return;
+  const s = loadSettings();
+  if (s.importOnStart) autoImport.importAll();
+  if (s.watchBrowsers) autoImport.start();
+}
 
 // ---------- browser extension bridge ----------
 
@@ -307,6 +329,7 @@ app.whenReady().then(async () => {
   migrateOldData();
   lib = await Library.open(path.join(dataDir(), 'library.sqlite'));
   createWindow();
+  win.webContents.once('did-finish-load', () => setTimeout(setupAutoImport, 1500));
   if (!process.env.BMLIB_NO_BRIDGE) {
     bridge = startBridge({
       getToken: bridgeToken,

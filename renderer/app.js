@@ -612,6 +612,8 @@ async function openSettings() {
   for (const r of document.querySelectorAll('input[name=categorizer]')) r.checked = r.value === s.categorizer;
   $('#ollama-model').value = s.ollamaModel;
   $('#ollama-cpu').checked = !!s.ollamaCpuOnly;
+  $('#set-import-start').checked = !!s.importOnStart;
+  $('#set-watch').checked = !!s.watchBrowsers;
   showCategorizerOptions(s.categorizer);
   $('#dlg-settings').showModal();
 }
@@ -627,6 +629,16 @@ $('#ollama-model').addEventListener('change', async (e) => {
   refreshOllamaStatus();
 });
 $('#ollama-cpu').addEventListener('change', (e) => window.api.saveSettings({ ollamaCpuOnly: e.target.checked }));
+$('#set-import-start').addEventListener('change', (e) => window.api.saveSettings({ importOnStart: e.target.checked }));
+$('#set-watch').addEventListener('change', (e) => window.api.saveSettings({ watchBrowsers: e.target.checked }));
+
+// New bookmarks found in a browser (automatic import).
+window.api.onAutoImport(async (results) => {
+  await reload();
+  const n = results.reduce((a, r) => a + r.added, 0);
+  const from = [...new Set(results.map(r => r.label.split(' · ')[0]))].join(', ');
+  toast(`Imported ${plural(n)} you saved in ${from}.`, 6000);
+});
 $('#key-save').onclick = async () => {
   const key = $('#key-input').value.trim();
   if (!key) return;

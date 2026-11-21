@@ -8,7 +8,7 @@
   "scripts": {
     "start": "electron .",
     "smoke": "node scripts/smoke.js",
-    "test": "node scripts/test-db.js && node scripts/test-sync.js && node scripts/test-extension.js && node scripts/test-ollama.js && node scripts/test-dups.js"
+    "test": "node scripts/test-db.js && node scripts/test-sync.js && node scripts/test-extension.js && node scripts/test-ollama.js && node scripts/test-dups.js && node scripts/test-autoimport.js"
   },
   "license": "GPL-3.0-only",
   "type": "commonjs",

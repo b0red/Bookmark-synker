@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('api', {
   bridgeOpenFirefoxFolder: () => ipcRenderer.invoke('bridge:openFirefoxFolder'),
   copyText: (text) => ipcRenderer.invoke('clipboard:write', text),
   onBridgeReport: (fn) => ipcRenderer.on('bridge-report', (_e, r) => fn(r)),
+  onAutoImport: (fn) => ipcRenderer.on('auto-import', (_e, r) => fn(r)),
   cancelJob: (kind) => ipcRenderer.invoke('job:cancel', kind),
   checkLinks: (ids) => ipcRenderer.invoke('links:check', { ids }),
   exportHtml: (ids, groupBy) => ipcRenderer.invoke('export:html', { ids, groupBy }),
