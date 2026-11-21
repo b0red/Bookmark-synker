@@ -334,6 +334,7 @@ app.whenReady().then(async () => {
     bridge = startBridge({
       getToken: bridgeToken,
       getDeletedNorms: () => lib.removedNorms(),
+      getCategories: () => lib.categoryMap(),
       appVersion: app.getVersion(),
       onReport: (r) => send('bridge-report', r),
     });

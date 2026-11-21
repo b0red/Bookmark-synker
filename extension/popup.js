@@ -17,8 +17,9 @@ function browserName() {
 }
 
 function show(view) {
-  for (const v of ['perm', 'pair', 'offline', 'main', 'done']) $(`#v-${v}`).classList.toggle('hidden', v !== view);
+  for (const v of ['perm', 'pair', 'offline', 'main', 'done', 'organize']) $(`#v-${v}`).classList.toggle('hidden', v !== view);
   $('#unpair').classList.toggle('hidden', view === 'pair' || view === 'perm');
+  $('#org-entry').classList.toggle('hidden', view !== 'main' && view !== 'done');
 }
 
 const store = {
@@ -139,6 +140,75 @@ $('#done-undo').onclick = async () => {
   $('#done-summary').innerHTML = `<b>Put back ${n} bookmark${n === 1 ? '' : 's'}.</b> To keep them for good, also restore them under <i>Recently deleted</i> in the app.`;
   $('#done-undo').classList.add('hidden');
   $('#done-undo').disabled = false;
+};
+
+// ---------- Sort into folders by category ----------
+let orgMoves = [];
+const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const otherTitle = (tree) => ((tree[0].children || []).find(c => c.id === BMCore.otherFolderId(tree)) || {}).title || 'Other bookmarks';
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
+async function openOrganize() {
+  show('organize');
+  $('#org-summary').textContent = 'Looking at your categories…';
+  $('#org-list').innerHTML = '';
+  $('#org-go').classList.add('hidden');
+  const last = await store.get('lastOrganize');
+  $('#org-undo').classList.toggle('hidden', !(last && last.moves.length));
+  let items;
+  try { items = (await call('/v1/categories', state.token)).items; } catch { $('#org-summary').textContent = 'Could not reach the app.'; return; }
+  const cats = new Map(items.map(i => [i.norm, i.category]));
+  const tree = await bm.getTree();
+  orgMoves = BMCore.planOrganize(tree, cats);
+  if (!cats.size) { $('#org-summary').innerHTML = '<b>No categories yet.</b> Categorize bookmarks in the app first.'; return; }
+  if (!orgMoves.length) { $('#org-summary').innerHTML = `<b>All sorted.</b> Every categorized bookmark in ${browserName()} is in its category folder.`; return; }
+  const groups = BMCore.summarizePlan(orgMoves);
+  $('#org-summary').innerHTML = `Move <b>${plural(orgMoves.length, 'bookmark')}</b> into ${plural(groups.length, 'folder')}:`;
+  for (const g of groups.slice(0, 200)) {
+    const li = document.createElement('li');
+    li.textContent = g.folder.replace(BMCore.ROOT_FOLDER + ' / ', '');
+    const c = document.createElement('span');
+    c.className = 'muted count';
+    c.textContent = g.count;
+    li.append(c);
+    $('#org-list').append(li);
+  }
+  $('#org-go').classList.remove('hidden');
+  $('#org-go').disabled = false;
+}
+
+$('#org-open').onclick = openOrganize;
+$('#org-back').onclick = load;
+
+$('#org-go').onclick = async () => {
+  $('#org-go').disabled = true;
+  $('#org-go').textContent = 'Sorting…';
+  const tree = await bm.getTree();
+  const undo = await BMCore.applyOrganize(bm, tree, orgMoves);
+  await store.set('lastOrganize', { at: Date.now(), moves: undo.moves, createdFolders: undo.createdFolders });
+  call('/v1/report', state.token, { organized: undo.moves.length }).catch(() => {});
+  $('#org-summary').innerHTML = `<b>Sorted ${plural(undo.moves.length, 'bookmark')}.</b>` +
+    (undo.failed.length ? ` ${undo.failed.length} couldn't be moved (managed or read-only).` : '') +
+    ` Find them under <i>${esc(otherTitle(tree))} → ${BMCore.ROOT_FOLDER}</i>.`;
+  $('#org-list').innerHTML = '';
+  $('#org-go').textContent = 'Sort them';
+  $('#org-go').classList.add('hidden');
+  $('#org-undo').classList.toggle('hidden', !undo.moves.length);
+};
+
+$('#org-undo').onclick = async () => {
+  const last = await store.get('lastOrganize');
+  if (!last) return;
+  $('#org-undo').disabled = true;
+  const tree = await bm.getTree();
+  const n = await BMCore.undoOrganize(bm, last, BMCore.otherFolderId(tree));
+  await ext.storage.local.remove('lastOrganize');
+  call('/v1/report', state.token, { unorganized: true }).catch(() => {});
+  $('#org-summary').innerHTML = `<b>Moved ${plural(n, 'bookmark')} back</b> to where they were.`;
+  $('#org-list').innerHTML = '';
+  $('#org-go').classList.add('hidden');
+  $('#org-undo').classList.add('hidden');
+  $('#org-undo').disabled = false;
 };
 
 load();

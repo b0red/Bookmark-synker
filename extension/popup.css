@@ -22,3 +22,10 @@ button:disabled { opacity: .5; cursor: default; }
 .list li .muted { font-size: 11px; }
 footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border); }
 a { color: var(--accent); }
+
+hr { border: 0; border-top: 1px solid #ddd; margin: 12px 0 8px; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; margin-top: 0; }
+.list:empty { display: none; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; }
+.row button { width: auto; flex: 1 1 auto; }
+#org-list .count { float: right; }

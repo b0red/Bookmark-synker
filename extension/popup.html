@@ -45,6 +45,24 @@
     <button id="done-undo">Undo</button>
   </section>
 
+  <!-- Sorting into folders (offered from the main and result views) -->
+  <section id="org-entry" class="hidden">
+    <hr>
+    <button id="org-open" class="link-btn">Sort into folders by category…</button>
+  </section>
+
+  <!-- 5. Sort into folders -->
+  <section id="v-organize" class="hidden">
+    <p id="org-summary"></p>
+    <ul id="org-list" class="list"></ul>
+    <div class="row">
+      <button id="org-go" class="primary">Sort them</button>
+      <button id="org-undo" class="hidden">Undo sorting</button>
+      <button id="org-back">Back</button>
+    </div>
+    <p class="muted small">Bookmarks are only moved, never deleted, into a <i>Bookmark syncer</i> folder under Other bookmarks, one folder per category. Your browser sync moves them on your other devices too.</p>
+  </section>
+
   <footer>
     <span id="status" class="muted small"></span>
     <a href="#" id="unpair" class="small">Change pairing code</a>

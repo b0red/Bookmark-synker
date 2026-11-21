@@ -71,7 +71,13 @@ class Library {
     const tmp = this.file + '.tmp';
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
     fs.writeFileSync(tmp, Buffer.from(this.db.export()));
-    fs.renameSync(tmp, this.file);
+    // Windows: a virus scanner or the search indexer can hold the new file for a moment.
+    for (let attempt = 0; ; attempt++) {
+      try { fs.renameSync(tmp, this.file); return; } catch (e) {
+        if (attempt >= 8 || !['EPERM', 'EBUSY', 'EACCES'].includes(e.code)) throw e;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50 * (attempt + 1));
+      }
+    }
   }
 
   all(sql, params = []) {
@@ -321,6 +327,14 @@ class Library {
 
   removedNorms() {
     return this.all('SELECT norm FROM removed').map(r => r.norm);
+  }
+
+  // Each categorized URL (merged URLs too) with its category, for sorting browser bookmarks into folders.
+  categoryMap() {
+    return this.all(`SELECT norm, category FROM bookmarks WHERE category IS NOT NULL AND category != ''
+      UNION ALL
+      SELECT a.norm, b.category FROM aliases a JOIN bookmarks b ON b.id = a.bookmark_id
+      WHERE b.category IS NOT NULL AND b.category != ''`);
   }
 
   remove(ids) {

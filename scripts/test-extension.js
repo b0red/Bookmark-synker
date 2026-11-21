@@ -2,6 +2,7 @@
 // 1. the local bridge only answers the extension (pairing code, host and origin checks)
 // 2. the extension's matching / delete / undo logic, run against in-memory copies of this PC's
 //    real Chromium and Firefox bookmark trees (the real files are only read)
+//    and sorting bookmarks into category folders (and moving them back)
 // 3. the Firefox build of the extension
 const fs = require('fs');
 const os = require('os');
@@ -85,7 +86,7 @@ function fakeBookmarks(root) {
     get: async (id) => { if (!byId.has(id)) throw new Error('Can\'t find bookmark for id.'); return [clone(byId.get(id))]; },
     remove: async (id) => {
       const n = byId.get(id);
-      if (!n || n.children) throw new Error('Can\'t find bookmark for id.');
+      if (!n || (n.children && n.children.length)) throw new Error('Can\'t remove non-empty folder');
       const p = byId.get(n.parentId);
       p.children.splice(p.children.indexOf(n), 1);
       byId.delete(id);
@@ -94,12 +95,25 @@ function fakeBookmarks(root) {
     create: async ({ parentId, index, title, url }) => {
       const p = byId.get(parentId);
       if (!p || !p.children) throw new Error('Can\'t find parent bookmark for id.');
-      const node = { id: `new-${++created}`, parentId, title, url };
+      const node = url ? { id: `new-${++created}`, parentId, title, url } : { id: `new-${++created}`, parentId, title, children: [] };
       const at = index === undefined ? p.children.length : Math.min(index, p.children.length);
       p.children.splice(at, 0, node);
       byId.set(node.id, node);
       reindex(p);
       return clone(node);
+    },
+    getChildren: async (id) => { const n = byId.get(id); if (!n || !n.children) throw new Error('Can\'t find bookmark for id.'); return clone(n.children); },
+    move: async (id, { parentId, index }) => {
+      const n = byId.get(id), to = byId.get(parentId);
+      if (!n || !to || !to.children) throw new Error('Can\'t find bookmark for id.');
+      const from = byId.get(n.parentId);
+      from.children.splice(from.children.indexOf(n), 1);
+      reindex(from);
+      const at = index === undefined ? to.children.length : Math.min(index, to.children.length);
+      to.children.splice(at, 0, n);
+      n.parentId = parentId;
+      reindex(to);
+      return clone(n);
     },
   };
 }
@@ -111,7 +125,7 @@ const layout = (tree) => core.flatten(tree).map(b => `${b.folder}\t${b.index}\t$
   const token = newToken();
   assert.match(token, /^[0-9a-f]{4}(-[0-9a-f]{4}){3}$/);
   const reports = [];
-  const bridge = startBridge({ port: PORT, getToken: () => token, getDeletedNorms: () => ['example.com/a', 'example.org'], onReport: (r) => reports.push(r), appVersion: '9.9.9' });
+  const bridge = startBridge({ port: PORT, getToken: () => token, getDeletedNorms: () => ['example.com/a', 'example.org'], getCategories: () => [{ norm: 'example.com/b', category: 'Work / Tools' }], onReport: (r) => reports.push(r), appVersion: '9.9.9' });
   await new Promise(r => setTimeout(r, 200));
   const EXT = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop';
   const ok = { host: `127.0.0.1:${PORT}`, origin: EXT, 'x-bookmark-syncer-token': token, 'x-bookmark-syncer-browser': 'Edge' };
@@ -129,9 +143,11 @@ const layout = (tree) => core.flatten(tree).map(b => `${b.folder}\t${b.index}\t$
   assert.deepStrictEqual(hello.body, { app: 'Bookmark syncer', version: '9.9.9', deleted: 2 });
   assert.strictEqual(hello.headers['access-control-allow-origin'], EXT);
   assert.deepStrictEqual((await request({ path: '/v1/deleted', headers: ok })).body, { norms: ['example.com/a', 'example.org'] });
+  assert.deepStrictEqual((await request({ path: '/v1/categories', headers: ok })).body, { items: [{ norm: 'example.com/b', category: 'Work / Tools' }] });
+  assert.strictEqual((await request({ path: '/v1/categories', headers: { ...ok, 'x-bookmark-syncer-token': '' } })).status, 401, 'categories need the code too');
   const rep = await request({ method: 'POST', path: '/v1/report', headers: { ...ok, 'content-type': 'application/json' }, body: JSON.stringify({ removed: 3, failed: -1, junk: 'x' }) });
   assert.strictEqual(rep.status, 200);
-  assert.deepStrictEqual(reports[0], { browser: 'Edge', removed: 3, failed: 0, undone: false });
+  assert.deepStrictEqual(reports[0], { browser: 'Edge', removed: 3, failed: 0, undone: false, organized: 0, unorganized: false });
   assert.strictEqual(bridge.status().contacts[0].browser, 'Edge');
   await bridge.close();
   console.log('Bridge: pairing code, host and origin checks OK');
@@ -167,7 +183,32 @@ const layout = (tree) => core.flatten(tree).map(b => `${b.folder}\t${b.index}\t$
     const back = await core.restore(bm, removed, core.otherFolderId(afterTree));
     assert.strictEqual(back, removed.length);
     assert.deepStrictEqual(layout(await bm.getTree()), before, `${s.label}: undo didn't restore the exact layout`);
-    console.log(`${s.label}: found ${matches.length}, deleted ${removed.length}, undo restored all in place. OK`);
+    // Sort into category folders: about half the bookmarks get a (sometimes nested) category.
+    const cats = new Map();
+    core.flatten(await bm.getTree()).forEach((b, i) => {
+      if (i % 2 || !/^https?:/i.test(b.url)) return;
+      let host;
+      try { host = new URL(b.url).hostname.replace(/^www\./, '') || 'x'; } catch { return; }
+      cats.set(normalizeUrl(b.url), i % 3 ? `Test ${host[0].toUpperCase()}` : `Test ${host[0].toUpperCase()} / ${host}`);
+    });
+    const plan = core.planOrganize(await bm.getTree(), cats);
+    const undo = await core.applyOrganize(bm, await bm.getTree(), plan);
+    assert.strictEqual(undo.failed.length, 0);
+    assert.strictEqual(undo.moves.length, plan.length);
+    const sorted = await bm.getTree();
+    assert.strictEqual(core.planOrganize(sorted, cats).length, 0, `${s.label}: everything is in its folder`);
+    assert.strictEqual(core.flatten(sorted).length, before.length, 'sorting deletes nothing');
+    const otherTitle = (sorted[0].children.find(c => c.id === core.otherFolderId(sorted)) || {}).title;
+    for (const b of core.flatten(sorted)) {
+      const c = cats.get(normalizeUrl(b.url));
+      if (c && !b.unmodifiable && /^https?:/i.test(b.url)) assert.strictEqual(b.folder, `${otherTitle} / ${core.ROOT_FOLDER} / ${c}`, b.url);
+    }
+    const movedBack = await core.undoOrganize(bm, undo, core.otherFolderId(sorted));
+    assert.strictEqual(movedBack, plan.length);
+    assert.deepStrictEqual(layout(await bm.getTree()), before, `${s.label}: undo sorting didn't restore the exact layout`);
+    const otherAfter = (await bm.getTree())[0].children.find(c => c.id === core.otherFolderId(sorted));
+    assert.ok(!otherAfter.children.some(c => c.title === core.ROOT_FOLDER && !c.url && !c.children.length), 'empty folders are cleaned up');
+    console.log(`${s.label}: found ${matches.length}, deleted ${removed.length}, undo restored all in place; sorted ${plan.length} into folders and back. OK`);
     tested++;
   }
   assert.ok(tested > 0, 'no browser profiles to test');

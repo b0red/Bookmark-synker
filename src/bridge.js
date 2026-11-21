@@ -33,7 +33,7 @@ function newToken() {
 
 // getToken(): current pairing code; getDeletedNorms(): string[]; onReport(report, origin);
 // appVersion: shown to the extension. Returns { status(), close() }.
-function startBridge({ port = PORT, getToken, getDeletedNorms, onReport, appVersion }) {
+function startBridge({ port = PORT, getToken, getDeletedNorms, getCategories = () => [], onReport, appVersion }) {
   const contacts = new Map(); // extension origin -> { browser, at }
   let listening = false, error = null;
 
@@ -66,6 +66,9 @@ function startBridge({ port = PORT, getToken, getDeletedNorms, onReport, appVers
     if (req.method === 'GET' && url.pathname === '/v1/deleted') {
       return send(200, { norms: getDeletedNorms() });
     }
+    if (req.method === 'GET' && url.pathname === '/v1/categories') {
+      return send(200, { items: getCategories() });
+    }
     if (req.method === 'POST' && url.pathname === '/v1/report') {
       let size = 0;
       const chunks = [];
@@ -82,6 +85,8 @@ function startBridge({ port = PORT, getToken, getDeletedNorms, onReport, appVers
           removed: Math.max(0, Number(report.removed) || 0),
           failed: Math.max(0, Number(report.failed) || 0),
           undone: !!report.undone,
+          organized: Math.max(0, Number(report.organized) || 0),
+          unorganized: !!report.unorganized,
         };
         try { onReport && onReport(clean); } catch {}
         send(200, { ok: true });

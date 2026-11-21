@@ -69,6 +69,10 @@ console.log('URL and title keys OK');
     assert.ok(merged.tags.includes('music'));
     assert.ok(!merged.dup, 'no longer a duplicate');
     assert.deepStrictEqual(lib.removedNorms(), [], 'merging deletes nothing in the browsers');
+    // The extension's "Sort into folders" sees every merged URL with the kept bookmark's category.
+    const catMap = lib.categoryMap();
+    assert.strictEqual(catMap.length, 3);
+    assert.ok(catMap.every(c => c.category === 'Music'));
 
     // Importing a merged URL again lands on the kept bookmark.
     const r = lib.importItems([{ url: 'https://youtu.be/abc123', title: 'x', folder: 'Again' }], 'Edge · Default');

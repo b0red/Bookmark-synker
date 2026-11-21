@@ -858,6 +858,8 @@ for (const id of ['#ext-url-chrome', '#ext-url-edge', '#ext-url-firefox']) {
 // The extension reports back after it deletes (or undoes) in a browser.
 window.api.onBridgeReport(async (r) => {
   if ($('#dlg-ext').open) refreshExtDialog();
+  if (r.unorganized) return toast(`${r.browser}: the extension moved its bookmarks back out of the category folders.`, 7000);
+  if (r.organized) return toast(`${r.browser}: the extension sorted ${plural(r.organized)} into category folders.`, 7000);
   if (r.undone) return toast(`${r.browser}: the extension put its last deletions back.`, 7000);
   toast(`${r.browser}: the extension deleted ${plural(r.removed)}${r.failed ? ` (${r.failed} couldn't be deleted)` : ''}. Browser sync takes it from here.`, 8000);
   if ($('#dlg-sync').open) loadSyncPlan();
