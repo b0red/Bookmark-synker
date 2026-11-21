@@ -19,7 +19,7 @@ Your browsers' own bookmarks are only **read**, except when you click **Sync to 
 | **Recently deleted** | Lists everything you deleted, newest first. **Restore** one, a selection, or right-click → *Restore all*. Restored links are imported again in the future. |
 | **Clean up** | Right-click **Not opened in a year**, **Dead links** or **Links with problems** → *Delete all*. Deleted links stay deleted on future imports. |
 | **Tidy categories** | Right-click a category → *Rename or merge…* (type an existing name to merge), *Remove category* or *Delete all*. All with Undo. |
-| **Sync to browsers** | Removes what you deleted here from the browsers' own bookmarks too. It shows a preview first, needs the browser closed, and backs up every file. |
+| **Sync to browsers** | Removes what you deleted here from the browsers' own bookmarks too. It shows a preview first, needs the browser closed, and backs up every file. **Restore from backup…** puts any of those files back. |
 | **Browser extension** | For Chrome, Edge and other Chromium browsers with sync turned on: the *Bookmark syncer helper* deletes through the browser itself, so the deletions reach all your devices. Preview, one click, Undo. See [docs/INSTALL.md](docs/INSTALL.md#7-the-browser-extension-chrome-edge-and-other-chromium-browsers). |
 | **Search** | Free text, or filters: `tag:python`, `cat:cooking`, `site:github.com`, `in:firefox`. <kbd>Ctrl</kbd>+<kbd>K</kbd> focuses search, and <kbd>Enter</kbd> opens the top hit. |
 | **Check links** | Finds dead pages (404, domain gone) and offers the Wayback Machine copy. |

@@ -18,8 +18,9 @@ async function status(model) {
 }
 
 // Older graphics cards (or old drivers) can crash Ollama's GPU runner. When that happens we
-// switch to CPU-only for the rest of the session: slower, but it works.
+// switch to CPU-only: slower, but it works. The app remembers it in settings (`ollamaCpuOnly`).
 let cpuOnly = false;
+let onCpuFallback = () => {};
 
 function looksLikeGpuCrash(status, text) {
   return status === 500 && /llama-server process has terminated|CUDA|cuda|0xc0000409|ggml|vulkan|rocm/i.test(text);
@@ -52,6 +53,7 @@ async function categorizeBatch(model, batch, knownCategories, signal) {
     const text = await res.clone().text().catch(() => '');
     if (looksLikeGpuCrash(res.status, text)) {
       cpuOnly = true;
+      onCpuFallback();
       res = await chat(model, messages, signal);
     }
   }
@@ -69,7 +71,11 @@ async function categorizeBatch(model, batch, knownCategories, signal) {
     .map(r => ({ id: r.id, category: r.category.trim().slice(0, 40), tags: (r.tags || []).map(String).slice(0, 4) }));
 }
 
-async function categorize({ model, bookmarks, knownCategories, onBatch, signal }) {
+// `cpu`: start on the CPU (remembered from an earlier GPU crash, or set in Settings).
+// `onFallback`: called once if the GPU crashes during this run and we switch to the CPU.
+async function categorize({ model, bookmarks, knownCategories, onBatch, signal, cpu = false, onFallback }) {
+  cpuOnly = !!cpu;
+  onCpuFallback = onFallback || (() => {});
   const s = await status(model);
   if (!s.running) throw new Error('Ollama is not running. Install it from ollama.com, or start the Ollama app.');
   if (!s.hasModel) throw new Error(`Ollama doesn't have the model "${model}" yet. In a terminal, run: ollama pull ${model}`);

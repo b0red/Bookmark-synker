@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('api', {
   restore: (ids) => ipcRenderer.invoke('deleted:restore', ids),
   browserSyncPlan: () => ipcRenderer.invoke('browsers:plan'),
   browserSyncApply: (labels) => ipcRenderer.invoke('browsers:apply', labels),
+  browserBackups: () => ipcRenderer.invoke('browsers:backups'),
+  browserRestore: (label, file) => ipcRenderer.invoke('browsers:restore', label, file),
   revealFile: (file) => ipcRenderer.invoke('browsers:reveal', file),
   keyStatus: () => ipcRenderer.invoke('key:status'),
   saveKey: (key) => ipcRenderer.invoke('key:save', key),

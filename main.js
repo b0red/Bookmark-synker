@@ -108,6 +108,10 @@ ipcMain.handle('open:url', (_e, url) => openExternal(url));
 // Sync deletions to browsers: preview what would be removed, then remove it from the chosen profiles.
 ipcMain.handle('browsers:plan', () => browserSync.plan(lib.removedNorms(), lib.SQL));
 ipcMain.handle('browsers:apply', (_e, labels) => browserSync.apply(labels, lib.removedNorms(), lib.SQL));
+ipcMain.handle('browsers:backups', () => browserSync.listBackups(lib.SQL));
+ipcMain.handle('browsers:restore', async (_e, label, file) => {
+  try { return await browserSync.restoreBackup(label, file, lib.SQL); } catch (e) { return { label, error: e.message }; }
+});
 ipcMain.handle('browsers:reveal', (_e, file) => { if (typeof file === 'string' && fs.existsSync(file)) shell.showItemInFolder(file); });
 
 ipcMain.handle('key:status', async () => ({ saved: !!(await loadKey()), env: !!process.env.ANTHROPIC_API_KEY }));
@@ -162,6 +166,7 @@ ipcMain.handle('claude:categorize', async (_e, { ids }) => {
   if (jobs.categorize) return { error: 'Already running.' };
   const ctrl = (jobs.categorize = new AbortController());
   let doneSoFar = 0;
+  let cpuFallback = false;
   try {
     const wanted = new Set(ids);
     const all = lib.list();
@@ -178,15 +183,20 @@ ipcMain.handle('claude:categorize', async (_e, { ids }) => {
     if (settings.categorizer === 'claude') {
       await claude.categorize({ apiKey: await loadKey(), bookmarks, knownCategories, onBatch, signal });
     } else if (settings.categorizer === 'ollama') {
-      await ollama.categorize({ model: settings.ollamaModel, bookmarks, knownCategories, onBatch, signal });
+      await ollama.categorize({
+        model: settings.ollamaModel, bookmarks, knownCategories, onBatch, signal,
+        cpu: !!settings.ollamaCpuOnly,
+        // Remember it, so the next run doesn't crash the GPU first. Can be turned off in Settings.
+        onFallback: () => { cpuFallback = true; saveSettings({ ollamaCpuOnly: true }); },
+      });
     } else {
       await rules.categorize({ bookmarks, onBatch });
     }
-    if (signal.aborted) return { cancelled: true, count: doneSoFar, total: bookmarks.length };
-    return { ok: true, count: bookmarks.length };
+    if (signal.aborted) return { cancelled: true, count: doneSoFar, total: bookmarks.length, cpuFallback };
+    return { ok: true, count: bookmarks.length, cpuFallback };
   } catch (e) {
-    if (ctrl.signal.aborted) return { cancelled: true, count: doneSoFar };
-    return { error: claude.describeError(e) };
+    if (ctrl.signal.aborted) return { cancelled: true, count: doneSoFar, cpuFallback };
+    return { error: claude.describeError(e), cpuFallback };
   } finally {
     jobs.categorize = null;
   }

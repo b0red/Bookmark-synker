@@ -76,7 +76,7 @@ Deleting in the app only removes bookmarks from the library. To remove them from
 2. **Fully close** the browsers. Edge and Chrome often keep running in the system tray. Right-click their tray icon → *Close*, or turn off *Startup boost* / *Continue running background apps* in the browser's settings.
 3. Click **Sync to browsers**. It lists, per browser profile, which bookmarks would be removed. Tick the profiles and click **Delete from selected browsers**.
 
-A backup of each file is saved next to it, named `Bookmarks.bookmark-syncer-backup-<date>` (Chromium) or `places.sqlite.bookmark-syncer-backup-<date>` (Firefox). To undo, close the browser and copy the backup back over the original file.
+A backup of each file is saved next to it, named `Bookmarks.bookmark-syncer-backup-<date>` (Chromium) or `places.sqlite.bookmark-syncer-backup-<date>` (Firefox). To undo, close the browser, open **Sync to browsers → Restore from backup…** and click **Restore** next to the backup you want. The file it replaces is backed up too, so you can switch back.
 
 **About browser sync accounts**
 
@@ -119,7 +119,7 @@ The **Bookmark syncer helper** extension deletes bookmarks through the browser i
 | A setting or button you expect isn't there | You're running an older copy. Close **all** app windows and run `npm start` again. |
 | `Ollama is not running` | Start the Ollama app (it lives in the system tray), or install it. |
 | `Ollama doesn't have the model …` | Run `ollama pull <model name>`. |
-| Ollama error 500 / `llama-server process has terminated` / `CUDA error` | Your graphics card or driver doesn't work with this Ollama version. The app switches to CPU automatically and retries. Updating your GPU driver may make the GPU usable again. |
+| Ollama error 500 / `llama-server process has terminated` / `CUDA error` | Your graphics card or driver doesn't work with this Ollama version. The app switches to the CPU automatically, retries, and remembers it (⚙ Settings → *Run on the CPU only*). After a GPU driver update, untick it to try the graphics card again. |
 | `ollama` isn't recognized in PowerShell | Open a new PowerShell window after installing, or run `"$env:LOCALAPPDATA\Programs\Ollama\ollama.exe"`. |
 | Claude: `credit balance is too low` | Add credit in the Anthropic Console, or use Built-in rules or Ollama. |
 | `handshake failed … SSL error` in the terminal | Harmless. A site's certificate failed during a favicon or link check. |

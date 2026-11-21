@@ -187,9 +187,22 @@
     <div id="sync-result" class="result"></div>
     <div class="row">
       <button id="sync-refresh">Check again</button>
+      <button id="sync-backups">Restore from backup…</button>
       <span class="spacer"></span>
       <button id="sync-close">Close</button>
       <button id="sync-go" class="primary">Delete from selected browsers</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-backups">
+    <h2>Restore from backup</h2>
+    <p class="muted">Before <i>Sync to browsers</i> changes a browser's bookmarks, it saves the old file. Restoring puts that file back as it was. The browser must be closed. Bookmarks added or changed in that browser since the backup are lost, but the current file is backed up first, so you can switch back.</p>
+    <p class="small warn-text">Chrome or Edge with sync turned on may delete the restored bookmarks again. If so, restore them in the browser's own bookmark manager instead.</p>
+    <div id="backup-list" class="sources"></div>
+    <div id="backup-result" class="result"></div>
+    <div class="row">
+      <span class="spacer"></span>
+      <button id="backup-close" class="primary">Close</button>
     </div>
   </dialog>
 
@@ -209,6 +222,8 @@
       <label>Ollama model</label>
       <input id="ollama-model" placeholder="qwen2.5:3b">
       <p id="ollama-status" class="muted small"></p>
+      <label class="check"><input type="checkbox" id="ollama-cpu"> Run on the CPU only</label>
+      <p class="muted small">Slower, but works when Ollama crashes on an older graphics card. Turned on automatically after such a crash. Turn it off to try the graphics card again, for example after a driver update.</p>
     </div>
 
     <div id="opt-claude" class="hidden">

@@ -212,3 +212,11 @@ kbd { font: 11px/1.4 ui-monospace, Consolas, monospace; border: 1px solid var(--
 #dlg-ext code.token { font-size: 14px; padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px; user-select: all; }
 button.tiny { padding: 1px 8px; font-size: 12px; margin-left: 4px; }
 .ok-text { color: var(--ok); }
+
+/* restore from backup */
+#dlg-backups { width: min(640px, 92vw); max-height: 88vh; overflow-y: auto; }
+#backup-list { max-height: 50vh; overflow-y: auto; }
+.backup-profile { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.backup-profile:last-child { border-bottom: 0; }
+.backup-row { display: flex; align-items: center; gap: 10px; padding: 3px 0 3px 12px; font-size: 13px; }
+label.check { display: flex; align-items: center; gap: 6px; margin-top: 10px; cursor: pointer; }

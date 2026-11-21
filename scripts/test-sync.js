@@ -57,7 +57,30 @@ const bs = require('../src/browsersync');
         assert.ok(!('checksum' in data), 'checksum removed');
         assert.ok(data.roots && data.version, 'structure intact');
       }
-      console.log(`${s.label}: removed ${res.removed} of ${before.length}, ${after.length} left. OK`);
+      // ----- Restore from backup -----
+      const src = { ...s, path: copy };
+      const [listed] = bs.listBackups(SQL, [src]);
+      assert.ok(listed, `${s.label}: backup not listed`);
+      assert.strictEqual(listed.backups.length, 1);
+      assert.strictEqual(listed.backups[0].file, res.backup);
+      // (Counts include non-web bookmarks such as place: queries, so compare the difference.)
+      assert.strictEqual(listed.backups[0].count - listed.current, res.removed, 'backup has exactly the deleted ones more');
+      assert.throws(() => bs.restoreFile(src, s.path, SQL), /not found/, 'refuses a path that is not one of its backups');
+      const afterBytes = fs.readFileSync(copy);
+      const r = bs.restoreFile(src, res.backup, SQL); // same second as the sync: must not overwrite that backup
+      assert.strictEqual(r.restored, listed.backups[0].count);
+      assert.notStrictEqual(r.backup, res.backup);
+      assert.ok(fs.readFileSync(res.backup).equals(fs.readFileSync(copy)), 'file is the backup again');
+      assert.ok(fs.readFileSync(r.backup).equals(afterBytes), 'the replaced file was backed up');
+      assert.deepStrictEqual(parse(copy).map(key).sort(), before.map(key).sort(), `${s.label}: restore lost bookmarks`);
+      const again = bs.listBackups(SQL, [src])[0].backups;
+      assert.strictEqual(again.length, 2);
+      assert.strictEqual(again[0].file, r.backup, 'newest first');
+      // Switch back (undo the restore).
+      bs.restoreFile(src, r.backup, SQL);
+      assert.strictEqual(parse(copy).length, after.length);
+
+      console.log(`${s.label}: removed ${res.removed} of ${before.length}, ${after.length} left; restore and switch back OK`);
       tested++;
     }
     assert.ok(tested > 0, 'no browser profiles to test');

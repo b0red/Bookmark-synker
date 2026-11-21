@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0 (2026-11-21)
+
+- **Restore from backup** in the Sync dialog: lists the backups Sync to browsers made for each profile (date, bookmark count, difference from now) and puts one back with a click. The file it replaces is backed up first, so you can switch back
+- Backups made in the same second no longer overwrite each other
+- The **Ollama CPU fallback is remembered**: after a GPU crash the app shows a message and keeps using the CPU next time. Turn it off under ⚙ Settings → *Run on the CPU only*
+
 ## 0.6.0 (2026-11-21)
 
 - **Bookmark syncer helper**, a browser extension for Chrome, Edge, Brave, Vivaldi and Opera. It deletes the bookmarks you deleted in the app through the browser itself, so Google / Microsoft account sync removes them everywhere instead of putting them back. It shows a preview first, works while the browser is open, and has **Undo** (back to the same folder and position)

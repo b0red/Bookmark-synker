@@ -4,8 +4,6 @@
 
 - [ ] **Firefox version of the extension** (Firefox Sync already works with the file-based sync, so this is only for convenience)
 - [ ] **Publish the extension** to the Chrome Web Store / Edge Add-ons, so Developer mode isn't needed
-- [ ] **Restore from backup** button in the Sync dialog
-- [ ] **Remember the Ollama CPU fallback** between runs (it's re-detected each session now)
 - [ ] **Installer**: a packaged `.exe` with electron-builder so Node.js isn't needed
 
 ## Ideas
@@ -22,7 +20,7 @@
 ## Known issues
 
 - Favicons are fetched from each site directly, so some fail or trigger harmless SSL warnings in the terminal.
-- Ollama on older NVIDIA cards (e.g. GTX 900 series) crashes on the GPU. The app falls back to CPU, which is slow.
+- Ollama on older NVIDIA cards (e.g. GTX 900 series) crashes on the GPU. The app switches to the CPU (slow) and remembers it; see ⚙ Settings.
 - Safari and Chromium-based browsers in unusual install locations aren't auto-detected. Use the `bookmarks.html` import.
 - Only tested on Windows 10.
 - Sync to browsers (file-based): with Chrome or Edge sync turned on, the sync server restores deleted bookmarks. Use the browser extension for those profiles.

@@ -415,6 +415,59 @@ $('#sync-result').addEventListener('click', (e) => {
   if (a) { e.preventDefault(); window.api.revealFile(a.dataset.file); }
 });
 
+// ---------- restore a browser's bookmark file from a backup ----------
+
+const fmtDateTime = (ms) => new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+
+async function loadBackups() {
+  const list = $('#backup-list');
+  list.innerHTML = '<p class="muted">Looking for backups…</p>';
+  const profiles = await window.api.browserBackups();
+  if (!profiles.length) {
+    list.innerHTML = '<p class="muted">No backups yet. They are made each time <i>Sync to browsers</i> deletes something.</p>';
+    return;
+  }
+  list.innerHTML = profiles.map(p => `
+    <div class="backup-profile">
+      <div><b>${esc(p.label)}</b> <span class="muted">· now ${p.current ?? '?'} bookmarks</span></div>
+      ${p.backups.map(b => {
+        const diff = b.count != null && p.current != null ? b.count - p.current : null;
+        const delta = diff ? ` <span class="muted">(${diff > 0 ? '+' : ''}${diff})</span>` : '';
+        return `<div class="backup-row">
+          <span>${esc(fmtDateTime(b.at))}</span>
+          <span class="muted">${b.count == null ? 'unreadable' : `${b.count} bookmarks${delta}`}</span>
+          <span class="spacer"></span>
+          <button class="tiny" data-show="${esc(b.file)}">Show file</button>
+          <button class="tiny" data-label="${esc(p.label)}" data-file="${esc(b.file)}" data-when="${esc(fmtDateTime(b.at))}" data-count="${b.count ?? ''}" ${b.count == null ? 'disabled' : ''}>Restore</button>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+}
+
+$('#sync-backups').onclick = async () => {
+  $('#backup-result').innerHTML = '';
+  $('#dlg-backups').showModal();
+  await loadBackups();
+};
+$('#backup-close').onclick = () => {
+  $('#dlg-backups').close();
+  if ($('#dlg-sync').open) loadSyncPlan();
+};
+$('#backup-list').addEventListener('click', async (e) => {
+  const show = e.target.closest('button[data-show]');
+  if (show) return window.api.revealFile(show.dataset.show);
+  const btn = e.target.closest('button[data-file]');
+  if (!btn) return;
+  const { label, file, when, count } = btn.dataset;
+  if (!confirm(`Restore the bookmarks of ${label} from ${when} (${count} bookmarks)?\n\nThe browser's current bookmark file is replaced. It's backed up first, so you can switch back.`)) return;
+  btn.disabled = true;
+  const r = await window.api.browserRestore(label, file);
+  $('#backup-result').innerHTML = r.error
+    ? `<div class="err">${esc(label)}: ${esc(r.error)}</div>`
+    : `<div>${esc(label)}: <b>restored ${r.restored} bookmarks</b> from ${esc(when)}. Start the browser to see them.</div>`;
+  await loadBackups();
+});
+
 // ---------- settings ----------
 
 async function refreshKeyStatus() {
@@ -449,6 +502,7 @@ async function openSettings() {
   const s = await window.api.getSettings();
   for (const r of document.querySelectorAll('input[name=categorizer]')) r.checked = r.value === s.categorizer;
   $('#ollama-model').value = s.ollamaModel;
+  $('#ollama-cpu').checked = !!s.ollamaCpuOnly;
   showCategorizerOptions(s.categorizer);
   $('#dlg-settings').showModal();
 }
@@ -463,6 +517,7 @@ $('#ollama-model').addEventListener('change', async (e) => {
   await window.api.saveSettings({ ollamaModel: e.target.value.trim() || 'qwen2.5:3b' });
   refreshOllamaStatus();
 });
+$('#ollama-cpu').addEventListener('change', (e) => window.api.saveSettings({ ollamaCpuOnly: e.target.checked }));
 $('#key-save').onclick = async () => {
   const key = $('#key-input').value.trim();
   if (!key) return;
@@ -495,6 +550,7 @@ $('#btn-categorize').onclick = async () => {
     if (r.cancelled) toast(`Stopped. ${r.count} of ${ids.length} bookmarks were categorized and kept.`, 7000);
     else if (r.error) toast(r.error, 10000);
     else toast(`Categorized ${r.count} bookmarks.`);
+    if (r.cpuFallback) setTimeout(() => toast('Ollama crashed on your graphics card, so it now runs on the CPU (slower). This is remembered; change it under ⚙ Settings.', 10000), r.error || r.cancelled ? 10500 : 4000);
   } finally {
     $('#btn-categorize').disabled = false;
     hideProgress();
