@@ -27,13 +27,13 @@ function stamp() {
 }
 
 function backup(file) {
-  const dest = `${file}.bookmark-library-backup-${stamp()}`;
+  const dest = `${file}.bookmark-syncer-backup-${stamp()}`;
   fs.copyFileSync(file, dest);
   return dest;
 }
 
 function writeAtomic(file, data) {
-  const tmp = `${file}.bookmark-library-tmp`;
+  const tmp = `${file}.bookmark-syncer-tmp`;
   fs.writeFileSync(tmp, data);
   fs.renameSync(tmp, file);
 }

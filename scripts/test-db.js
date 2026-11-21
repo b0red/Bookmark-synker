@@ -76,6 +76,21 @@ const { detectSources, parseChromium, parseFirefox } = require('../src/importers
   assert.ok(lib4.list().some(b => b.norm === 'example.org/old'));
   console.log('Recently deleted / restore: OK');
 
+  // Bulk actions and their undo.
+  const pickIds = lib4.list().slice(0, 4).map(b => b.id);
+  const saved = lib4.list().filter(b => pickIds.includes(b.id)).map(b => ({ id: b.id, category: b.category, favorite: b.favorite, tags: b.tags }));
+  lib4.bulkUpdate(pickIds, { category: 'Bulk', favorite: 1, addTags: ['New', 'two'] });
+  let now = (await Library.open(file)).list().filter(b => pickIds.includes(b.id));
+  assert.ok(now.every(b => b.category === 'Bulk' && b.favorite === 1 && b.tags.includes('new') && b.tags.includes('two')));
+  lib4.bulkUpdate(pickIds, { removeTags: ['two'], category: null });
+  now = lib4.list().filter(b => pickIds.includes(b.id));
+  assert.ok(now.every(b => b.category === null && !b.tags.includes('two') && b.tags.includes('new')));
+  lib4.setFields(saved);
+  now = (await Library.open(file)).list().filter(b => pickIds.includes(b.id));
+  assert.deepStrictEqual(now.map(b => ({ id: b.id, category: b.category, favorite: b.favorite, tags: b.tags })).sort((a, b) => a.id - b.id),
+    saved.sort((a, b) => a.id - b.id));
+  console.log('Bulk actions / undo: OK');
+
   const multi = first.filter(b => new Set(b.sources.map(s => s.source)).size > 1).length;
   const never = first.filter(b => !b.last_used_at && !b.visit_count).length;
   console.log(`In several browsers: ${multi}, never opened: ${never}`);

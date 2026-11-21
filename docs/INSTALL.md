@@ -1,4 +1,4 @@
-# Installing and setting up Bookmark Library
+# Installing and setting up Bookmark syncer
 
 ## 1. Install Node.js
 
@@ -16,7 +16,7 @@ node --version
 
 ```powershell
 git clone <repo URL>
-cd bookmark-library
+cd bookmark-syncer
 ```
 
 **Without Git:** on the GitHub page, click **Code → Download ZIP**, unzip it, and open PowerShell in the unzipped folder.
@@ -76,7 +76,7 @@ Deleting in the app only removes bookmarks from the library. To remove them from
 2. **Fully close** the browsers. Edge and Chrome often keep running in the system tray. Right-click their tray icon → *Close*, or turn off *Startup boost* / *Continue running background apps* in the browser's settings.
 3. Click **Sync to browsers**. It lists, per browser profile, which bookmarks would be removed. Tick the profiles and click **Delete from selected browsers**.
 
-A backup of each file is saved next to it, named `Bookmarks.bookmark-library-backup-<date>` (Chromium) or `places.sqlite.bookmark-library-backup-<date>` (Firefox). To undo, close the browser and copy the backup back over the original file.
+A backup of each file is saved next to it, named `Bookmarks.bookmark-syncer-backup-<date>` (Chromium) or `places.sqlite.bookmark-syncer-backup-<date>` (Firefox). To undo, close the browser and copy the backup back over the original file.
 
 **About browser sync accounts**
 
@@ -108,8 +108,8 @@ npm install
 npm start
 ```
 
-Your library is kept in `%APPDATA%\Bookmark Library\` and isn't touched by updates.
+Your library is kept in `%APPDATA%\Bookmark syncer\` and isn't touched by updates.
 
 ## Uninstalling
 
-Delete the project folder and `%APPDATA%\Bookmark Library\`.
+Delete the project folder and `%APPDATA%\Bookmark syncer\`.

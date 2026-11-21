@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0 (2026-11-21)
+
+- Renamed to **Bookmark syncer**. Your library, settings and API key are copied automatically from the old `%APPDATA%\Bookmark Library` folder on first start (the old folder is kept as a backup)
+- **Bulk actions** on ticked bookmarks: set category, add or remove tags, favorite or unfavorite, each with Undo
+- **? help panel** explaining the link colors, site icons, the workflow and keyboard shortcuts
+
 ## 0.3.0 (2026-11-21)
 
 - **Recently deleted** view: see everything you deleted, open it, and **Restore** one, a selection or all (right-click). Restored links are no longer skipped on import

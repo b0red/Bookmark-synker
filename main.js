@@ -24,7 +24,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#16181d',
-    title: 'Bookmark Library',
+    title: 'Bookmark syncer',
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
@@ -97,6 +97,9 @@ ipcMain.handle('import:html', async () => {
 ipcMain.handle('library:list', () => lib.list());
 ipcMain.handle('bookmark:update', (_e, id, patch) => lib.update(id, patch));
 ipcMain.handle('bookmark:remove', (_e, ids) => lib.remove(ids));
+ipcMain.handle('app:info', () => ({ name: app.getName(), version: app.getVersion() }));
+ipcMain.handle('bookmark:bulk', (_e, ids, patch) => lib.bulkUpdate(ids, patch));
+ipcMain.handle('bookmark:setFields', (_e, list) => lib.setFields(list));
 ipcMain.handle('deleted:list', () => lib.listRemoved());
 ipcMain.handle('deleted:restore', (_e, ids) => lib.restore(ids));
 ipcMain.handle('open:url', (_e, url) => openExternal(url));
@@ -217,7 +220,22 @@ function toNetscapeHtml(items, groupBy) {
 // Dev hooks: BMLIB_DATA points the app at a separate data folder; BMLIB_SNAPSHOT saves a screenshot and quits.
 if (process.env.BMLIB_DATA) app.setPath('userData', process.env.BMLIB_DATA);
 
+// The app was called "Bookmark Library" before 0.4. Copy its data once to the new data folder,
+// so the library, settings and saved API key carry over. The old folder is left as a backup.
+function migrateOldData() {
+  if (process.env.BMLIB_DATA) return;
+  const oldDir = path.join(app.getPath('appData'), 'Bookmark Library');
+  const newDir = dataDir();
+  if (fs.existsSync(path.join(newDir, 'library.sqlite')) || !fs.existsSync(path.join(oldDir, 'library.sqlite'))) return;
+  fs.mkdirSync(newDir, { recursive: true });
+  for (const f of ['library.sqlite', 'settings.json', 'anthropic-key.bin']) {
+    try { fs.copyFileSync(path.join(oldDir, f), path.join(newDir, f)); } catch {}
+  }
+  console.log(`Copied your library from ${oldDir} to ${newDir}`);
+}
+
 app.whenReady().then(async () => {
+  migrateOldData();
   lib = await Library.open(path.join(dataDir(), 'library.sqlite'));
   createWindow();
   if (process.env.BMLIB_SNAPSHOT) {

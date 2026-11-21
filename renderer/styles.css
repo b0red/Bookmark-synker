@@ -167,7 +167,7 @@ dialog label { display: block; margin-top: 12px; }
 .list li .pick { width: 15px; height: 15px; margin: 0; cursor: pointer; accent-color: var(--accent); opacity: .35; }
 .list li:hover .pick, .list li .pick:checked, .list.picking li .pick { opacity: 1; }
 .list li.checked { background: var(--selected); }
-.selbar { display: flex; align-items: center; gap: 8px; padding: 6px 16px; background: var(--selected); border-bottom: 1px solid var(--border); }
+.selbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 16px; background: var(--selected); border-bottom: 1px solid var(--border); }
 .selbar b { margin-right: 6px; }
 .selbar .danger { color: var(--dead); }
 .listhead .pick-all { margin: 0 2px 0 0; accent-color: var(--accent); }
@@ -182,3 +182,22 @@ dialog label { display: block; margin-top: 12px; }
 /* toast action (Undo) and deleted-item details */
 .toast-action { margin-left: 10px; background: transparent; color: var(--bg); border: 1px solid currentColor; padding: 3px 10px; }
 .detail .d-title { margin: 4px 30px 6px 0; font-size: 15px; word-break: break-word; }
+
+/* bulk actions */
+.sel-bulk { display: inline-flex; gap: 6px; padding-right: 8px; margin-right: 2px; border-right: 1px solid var(--border); }
+#dlg-bulk { width: min(440px, 92vw); }
+#dlg-bulk input { width: 100%; }
+
+/* info panel */
+#dlg-info { width: min(620px, 92vw); max-height: 88vh; overflow-y: auto; }
+#dlg-info h3 { font-size: 14px; margin: 18px 0 8px; }
+.legend { display: grid; grid-template-columns: 70px 1fr; gap: 8px 12px; align-items: center; font-size: 13px; }
+.legend > :nth-child(odd) { justify-self: center; }
+.legend .dot { width: 10px; height: 10px; }
+.dot.none { border: 1px dashed var(--muted); background: transparent; }
+.legend-fav { width: 20px; height: 20px; }
+.legend-sel { width: 40px; height: 16px; border-radius: 4px; background: var(--selected); }
+.keys-list { list-style: none; padding-left: 0; }
+.howto { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.5; }
+.howto li { margin-bottom: 4px; }
+kbd { font: 11px/1.4 ui-monospace, Consolas, monospace; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--bg); }

@@ -2,7 +2,7 @@
 
 ## Next up
 
-- [ ] **Bulk actions on the selection**: change category, add tags, favorite (delete is done)
+- [ ] **Read more** link in the ? help panel (to a fuller guide or the GitHub README)
 - [ ] **Chrome/Edge sync**: find a way to delete that the sync server respects (e.g. a small browser extension using the bookmarks API)
 - [ ] **Restore from backup** button in the Sync dialog
 - [ ] **Cancel button** for Auto-categorize and Check links while they run

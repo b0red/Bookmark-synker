@@ -1,4 +1,4 @@
-# Bookmark Library
+# Bookmark syncer
 
 A Windows desktop app that reads the bookmarks from every browser on your PC (Chrome, Edge, Brave, Vivaldi, Opera, Firefox), merges the duplicates, and gives you one searchable, categorized library. You can sort it with built-in rules, a local AI (Ollama), or Claude, check which links are dead, clean out what you no longer need, and export the result back to any browser.
 
@@ -12,7 +12,8 @@ Your browsers' own bookmarks are only **read**, except when you click **Sync to 
 | **Merge duplicates** | URLs are cleaned up (tracking parameters, `www.`, trailing slashes), so the same page saved in three browsers becomes one entry that remembers every place it came from. |
 | **Auto-categorize** | Assigns a category and tags. Choose the engine in ⚙ Settings: **Built-in rules** (offline, instant), **Local AI** with Ollama (free, private), or **Claude** (best results, needs an API key). |
 | **Smart views** | Favorites, uncategorized, no visit history, not opened in a year, saved in several browsers, dead links, links with problems. |
-| **Select & delete** | Tick bookmarks (or Ctrl+click / Shift+click, Ctrl+A for all), then **Delete selected** or press <kbd>Del</kbd>. Every delete has an **Undo** button. |
+| **Select & change many** | Tick bookmarks (or Ctrl+click / Shift+click, Ctrl+A for all), then **Set category…**, **Tags…** (add or remove), **★ Favorite / ☆ Unfavorite** or **Delete selected** (<kbd>Del</kbd>). Every change has an **Undo** button. |
+| **Help panel** | The **?** button explains the colors, the workflow and the shortcuts. |
 | **Recently deleted** | Lists everything you deleted, newest first. **Restore** one, a selection, or right-click → *Restore all*. Restored links are imported again in the future. |
 | **Clean up** | Right-click **Not opened in a year**, **Dead links** or **Links with problems** → *Delete all*. Deleted links stay deleted on future imports. |
 | **Sync to browsers** | Removes what you deleted here from the browsers' own bookmarks too. It shows a preview first, needs the browser closed, and backs up every file. |
@@ -27,7 +28,7 @@ You need [Node.js](https://nodejs.org) 20 or newer.
 
 ```powershell
 git clone <this repo>
-cd bookmark-library
+cd bookmark-syncer
 npm install
 npm start
 ```
@@ -36,7 +37,7 @@ Click **Import**, tick the browsers, then **Import selected**. Full instructions
 
 ## Where your data lives
 
-Everything is stored locally in `%APPDATA%\Bookmark Library\`:
+Everything is stored locally in `%APPDATA%\Bookmark syncer\`. Versions before 0.4 were called Bookmark Library and used `%APPDATA%\Bookmark Library\`; that data is copied over automatically on first start.
 
 | File | Contents |
 |---|---|

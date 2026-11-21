@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
-  <title>Bookmark Library</title>
+  <title>Bookmark syncer</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="toolbar">
-    <div class="brand">Bookmark Library</div>
+    <div class="brand">Bookmark syncer</div>
     <div class="search">
       <input id="search" type="search" placeholder="Search…  (try tag:python  cat:cooking  site:github.com  in:firefox)" autocomplete="off">
     </div>
@@ -19,6 +19,7 @@
       <button id="btn-random" title="Show a random bookmark from this view">Rediscover</button>
       <button id="btn-export" title="Export this view as a bookmarks.html file any browser can import">Export</button>
       <button id="btn-sync" title="Delete the bookmarks you deleted here from your browsers too">Sync to browsers</button>
+      <button id="btn-info" class="icon" title="Help: colors and how it works">?</button>
       <button id="btn-settings" class="icon" title="Settings">⚙</button>
     </div>
   </header>
@@ -38,6 +39,12 @@
       </div>
       <div id="selbar" class="selbar hidden">
         <b id="sel-count"></b>
+        <span id="sel-bulk" class="sel-bulk">
+          <button id="sel-cat" title="Give all selected bookmarks the same category">Set category…</button>
+          <button id="sel-tags" title="Add or remove tags on all selected bookmarks">Tags…</button>
+          <button id="sel-fav" title="Mark all selected as favorites">★ Favorite</button>
+          <button id="sel-unfav" title="Remove favorite from all selected">☆ Unfavorite</button>
+        </span>
         <button id="sel-delete" class="danger">Delete selected</button>
         <button id="sel-restore" class="primary hidden">Restore selected</button>
         <button id="sel-clear">Clear selection</button>
@@ -63,6 +70,69 @@
       <button id="import-close">Close</button>
       <button id="import-go" class="primary">Import selected</button>
     </div>
+  </dialog>
+
+  <dialog id="dlg-info">
+    <h2>Bookmark syncer <span id="info-version" class="muted small"></span></h2>
+    <p class="muted">All your browsers' bookmarks in one library: merged, sorted and cleaned up, and the clean-up can be synced back to the browsers.</p>
+
+    <h3>What the colors mean</h3>
+    <div class="legend">
+      <span class="dot ok"></span><span><b>Working link</b>: the page answered when links were last checked</span>
+      <span class="dot warn"></span><span><b>Problem</b>: the site answered with an error, blocked the check or timed out. It may still work in your browser</span>
+      <span class="dot dead"></span><span><b>Dead link</b>: page not found (404/410) or the site no longer exists. The details panel offers the Wayback Machine copy</span>
+      <span class="dot none"></span><span><b>No dot</b>: not checked yet. Use <b>Check links</b></span>
+      <span class="fav legend-fav" style="background:hsl(210 55% 45%)">A</span><span><b>Colored square</b>: the site's icon. When a site has no icon, its first letter is shown on a color picked from the site name (the color has no meaning)</span>
+      <span class="star">★</span><span><b>Favorite</b></span>
+      <span class="chip cat">Category</span><span>The bookmark's category</span>
+      <span class="legend-sel"></span><span><b>Highlighted row</b>: selected (ticked) or open in the details panel</span>
+    </div>
+
+    <h3>How it works</h3>
+    <ol class="howto">
+      <li><b>Import</b> reads Chrome, Edge, Brave, Vivaldi, Opera and Firefox on this PC, or a <code>bookmarks.html</code> file. The same page saved in several browsers becomes one entry.</li>
+      <li><b>Auto-categorize</b> sorts the bookmarks in the current view. Choose built-in rules, local AI (Ollama) or Claude under ⚙.</li>
+      <li><b>Check links</b> finds dead pages. <b>Rediscover</b> opens a random bookmark.</li>
+      <li><b>Clean up</b>: tick bookmarks to delete them or change many at once, or right-click <i>Dead links</i> / <i>Not opened in a year</i> → <i>Delete all</i>. <i>Recently deleted</i> can restore them.</li>
+      <li><b>Sync to browsers</b> removes what you deleted from the browsers too (close them first; every file is backed up).</li>
+      <li><b>Export</b> saves the current view as a <code>bookmarks.html</code> any browser can import.</li>
+    </ol>
+
+    <h3>Shortcuts</h3>
+    <ul class="howto keys-list">
+      <li><kbd>Ctrl</kbd>+<kbd>K</kbd> search · <kbd>Enter</kbd> in search opens the top result · double-click a row opens it</li>
+      <li><kbd>Ctrl</kbd>+click ticks one more · <kbd>Shift</kbd>+click ticks a range · <kbd>Ctrl</kbd>+<kbd>A</kbd> ticks all in view</li>
+      <li><kbd>Del</kbd> deletes the ticked bookmarks · <kbd>Esc</kbd> clears the selection</li>
+    </ul>
+    <p class="muted small">Search filters: <code>tag:</code> <code>cat:</code> <code>site:</code> <code>in:</code> (source), e.g. <code>site:github.com tag:python</code></p>
+
+    <div class="row">
+      <span class="spacer"></span>
+      <button id="info-close" class="primary">Close</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-bulk">
+    <form method="dialog" id="bulk-form">
+      <h2 id="bulk-title"></h2>
+      <div id="bulk-cat-fields">
+        <label for="bulk-cat">Category</label>
+        <input id="bulk-cat" list="bulk-cat-list" placeholder="Leave empty to make them uncategorized" autocomplete="off">
+        <datalist id="bulk-cat-list"></datalist>
+      </div>
+      <div id="bulk-tag-fields">
+        <label for="bulk-add">Add tags (comma separated)</label>
+        <input id="bulk-add" list="bulk-tag-list" autocomplete="off">
+        <label for="bulk-remove">Remove tags (comma separated)</label>
+        <input id="bulk-remove" list="bulk-tag-list" autocomplete="off">
+        <datalist id="bulk-tag-list"></datalist>
+      </div>
+      <div class="row">
+        <span class="spacer"></span>
+        <button type="button" id="bulk-cancel">Cancel</button>
+        <button type="submit" id="bulk-ok" class="primary">Apply</button>
+      </div>
+    </form>
   </dialog>
 
   <dialog id="dlg-sync">

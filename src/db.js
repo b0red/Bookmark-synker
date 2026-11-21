@@ -142,6 +142,43 @@ class Library {
     this.save();
   }
 
+  // One change applied to many bookmarks in a single transaction.
+  // patch: { category?: string|null, favorite?: 0|1, addTags?: string[], removeTags?: string[] }
+  bulkUpdate(ids, patch) {
+    const clean = (list) => [...new Set((list || []).map(t => String(t).trim().toLowerCase()).filter(Boolean))];
+    const add = clean(patch.addTags), rem = clean(patch.removeTags);
+    this.run('BEGIN');
+    try {
+      for (const id of ids) {
+        if (patch.category !== undefined) this.run('UPDATE bookmarks SET category = ? WHERE id = ?', [patch.category || null, id]);
+        if (patch.favorite !== undefined) this.run('UPDATE bookmarks SET favorite = ? WHERE id = ?', [patch.favorite ? 1 : 0, id]);
+        for (const t of add) this.run('INSERT OR IGNORE INTO tags (bookmark_id, tag) VALUES (?, ?)', [id, t]);
+        for (const t of rem) this.run('DELETE FROM tags WHERE bookmark_id = ? AND tag = ?', [id, t]);
+      }
+      this.run('COMMIT');
+    } catch (e) {
+      this.run('ROLLBACK');
+      throw e;
+    }
+    this.save();
+  }
+
+  // Puts category, favorite and tags back to earlier values (used by Undo after a bulk change).
+  setFields(list) {
+    this.run('BEGIN');
+    try {
+      for (const f of list) {
+        this.run('UPDATE bookmarks SET category = ?, favorite = ? WHERE id = ?', [f.category ?? null, f.favorite ? 1 : 0, f.id]);
+        this.setTags(f.id, f.tags || []);
+      }
+      this.run('COMMIT');
+    } catch (e) {
+      this.run('ROLLBACK');
+      throw e;
+    }
+    this.save();
+  }
+
   setTags(id, tags) {
     this.run('DELETE FROM tags WHERE bookmark_id = ?', [id]);
     for (const t of [...new Set(tags.map(x => String(x).trim().toLowerCase()).filter(Boolean))]) {

@@ -540,6 +540,7 @@ function syncChecks() {
   const n = state.checked.size;
   const del = isDeletedView();
   $('#sel-delete').classList.toggle('hidden', del);
+  $('#sel-bulk').classList.toggle('hidden', del);
   $('#sel-restore').classList.toggle('hidden', !del);
   $('#sel-hint').textContent = 'Ctrl+click or Shift+click to select more' + (del ? '' : ' · Del deletes');
   $('#selbar').classList.toggle('hidden', n === 0);
@@ -599,6 +600,75 @@ $('#sel-delete').onclick = () => {
   deleteBookmarks([...state.checked], `${n} selected bookmark${n === 1 ? '' : 's'}`);
 };
 $('#sel-restore').onclick = () => restoreBookmarks([...state.checked]);
+
+// ---------- info panel ----------
+
+$('#btn-info').onclick = async () => {
+  const info = await window.api.appInfo().catch(() => null);
+  $('#info-version').textContent = info ? `v${info.version}` : '';
+  $('#dlg-info').showModal();
+  $('#dlg-info').scrollTop = 0; // focus lands on Close at the bottom; start at the top
+};
+$('#info-close').onclick = () => $('#dlg-info').close();
+
+// ---------- bulk actions on the selection ----------
+
+const plural = (n) => `${n} bookmark${n === 1 ? '' : 's'}`;
+
+// Applies one change to every selected bookmark, with Undo that puts each one's old values back.
+async function bulkApply(patch, message) {
+  const ids = [...state.checked];
+  if (!ids.length) return;
+  const before = state.items.filter(b => state.checked.has(b.id))
+    .map(b => ({ id: b.id, category: b.category, favorite: b.favorite, tags: [...b.tags] }));
+  await window.api.bulkUpdate(ids, patch);
+  await reload();
+  toast(message, 8000, {
+    label: 'Undo',
+    fn: async () => { await window.api.setFields(before); await reload(); toast('Undone.'); },
+  });
+}
+
+function openBulk(mode) {
+  const n = state.checked.size;
+  if (!n) return;
+  const sel = state.items.filter(b => state.checked.has(b.id));
+  $('#bulk-cat-fields').classList.toggle('hidden', mode !== 'category');
+  $('#bulk-tag-fields').classList.toggle('hidden', mode !== 'tags');
+  $('#bulk-title').textContent = mode === 'category' ? `Set category for ${plural(n)}` : `Tags for ${plural(n)}`;
+  const cats = [...new Set(state.items.map(b => b.category).filter(Boolean))].sort();
+  $('#bulk-cat-list').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
+  // Suggest tags the selection already has first, then the rest.
+  const selTags = [...new Set(sel.flatMap(b => b.tags))].sort();
+  const allTags = [...new Set(state.items.flatMap(b => b.tags))].sort().filter(t => !selTags.includes(t));
+  $('#bulk-tag-list').innerHTML = [...selTags, ...allTags].map(t => `<option value="${esc(t)}">`).join('');
+  const shared = [...new Set(sel.map(b => b.category || ''))];
+  $('#bulk-cat').value = shared.length === 1 ? shared[0] : '';
+  $('#bulk-add').value = '';
+  $('#bulk-remove').value = '';
+  $('#dlg-bulk').mode = mode;
+  $('#dlg-bulk').showModal();
+  (mode === 'category' ? $('#bulk-cat') : $('#bulk-add')).focus();
+}
+
+$('#sel-cat').onclick = () => openBulk('category');
+$('#sel-tags').onclick = () => openBulk('tags');
+$('#sel-fav').onclick = () => bulkApply({ favorite: 1 }, `Marked ${plural(state.checked.size)} as favorites.`);
+$('#sel-unfav').onclick = () => bulkApply({ favorite: 0 }, `Removed favorite from ${plural(state.checked.size)}.`);
+$('#bulk-cancel').onclick = () => $('#dlg-bulk').close();
+$('#bulk-form').addEventListener('submit', () => {
+  const n = state.checked.size;
+  if ($('#dlg-bulk').mode === 'category') {
+    const cat = $('#bulk-cat').value.trim();
+    bulkApply({ category: cat || null }, cat ? `Moved ${plural(n)} to “${cat}”.` : `Made ${plural(n)} uncategorized.`);
+  } else {
+    const split = (s) => s.split(',').map(t => t.trim()).filter(Boolean);
+    const addTags = split($('#bulk-add').value), removeTags = split($('#bulk-remove').value);
+    if (!addTags.length && !removeTags.length) return;
+    const parts = [addTags.length && `added ${addTags.join(', ')}`, removeTags.length && `removed ${removeTags.join(', ')}`].filter(Boolean);
+    bulkApply({ addTags, removeTags }, `Tags on ${plural(n)}: ${parts.join('; ')}.`);
+  }
+});
 
 // Right-click on a cleanup view (e.g. "Dead links") offers to delete everything in it.
 const DELETABLE_VIEWS = new Set(['stale', 'dead', 'warn']);

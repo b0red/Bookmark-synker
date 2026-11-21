@@ -1,6 +1,6 @@
 // Dead link checker: asks each site whether the page still exists.
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) BookmarkLibrary/0.1';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) BookmarkSyncer/0.4';
 const TIMEOUT_MS = 12000;
 const CONCURRENCY = 8;
 
