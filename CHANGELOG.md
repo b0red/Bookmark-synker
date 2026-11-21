@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Microsoft Store package**: `npm run dist:store` builds an `.appx` for the Store. It uses the same library folder as the normal installer, so you can switch between them. In the Store version, *Start with Windows* is turned on in Windows Settings → Apps → Startup instead of in the app
+
 ## 1.2.0 (2026-11-21)
 
 - **Automatic link checks**: ⚙ Settings → *Check links automatically* (off, every week, every month). The check runs in the background while the app is open, also in the tray. The tray icon's tooltip and menu show how many dead links there are, and new ones are announced in a tray message. Off by default

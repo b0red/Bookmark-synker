@@ -220,6 +220,7 @@ button.tiny { padding: 1px 8px; font-size: 12px; margin-left: 4px; }
 .backup-profile:last-child { border-bottom: 0; }
 .backup-row { display: flex; align-items: center; gap: 10px; padding: 3px 0 3px 12px; font-size: 13px; }
 label.check { display: flex; align-items: center; gap: 6px; margin-top: 10px; cursor: pointer; }
+label.check[hidden] { display: none; }
 
 /* drag handle between the library pane and the list */
 .resizer { flex-shrink: 0; width: 6px; margin: 0 -3px; position: relative; z-index: 5; cursor: col-resize; touch-action: none; }

@@ -10,6 +10,7 @@
     "smoke": "node scripts/smoke.js",
     "test": "node scripts/test-db.js && node scripts/test-sync.js && node scripts/test-extension.js && node scripts/test-ollama.js && node scripts/test-dups.js && node scripts/test-autoimport.js && node scripts/test-later.js && node scripts/test-safety.js && node scripts/test-library-file.js && node scripts/check-i18n.js",
     "dist": "electron-builder --win nsis",
+    "dist:store": "node scripts/dist-store.js",
     "check-i18n": "node scripts/check-i18n.js"
   },
   "license": "GPL-3.0-only",
@@ -63,6 +64,22 @@
     "electronLanguages": [
       "en-US",
       "sv"
-    ]
+    ],
+    "appx": {
+      "identityName": "B0red.Bookmark-synker",
+      "publisher": "CN=81BE1A85-1B75-436E-A087-44BDC60675D7",
+      "publisherDisplayName": "B0red",
+      "applicationId": "BookmarkSyncer",
+      "displayName": "Bookmark syncer",
+      "backgroundColor": "transparent",
+      "languages": [
+        "en-US",
+        "sv-SE"
+      ],
+      "minVersion": "10.0.17763.0",
+      "maxVersionTested": "10.0.19045.0",
+      "customManifestPath": "appxmanifest.xml",
+      "artifactName": "Bookmark-syncer-${version}-Store.${ext}"
+    }
   }
 }

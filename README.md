@@ -95,7 +95,7 @@ npm test       # library tests, "sync to browsers" on COPIES of your browser fil
                # automatic import and Read later on throwaway libraries, and the Swedish translation check
 npm run check-i18n  # lists texts without a Swedish translation (renderer/lang/sv.js, extension/i18n.js)
 npm run smoke  # prints bookmark counts per browser profile
-npm run dist   # builds the Windows installer in dist\
+npm run dist   # builds the Windows installer in dist\nnpm run dist:store  # builds the Microsoft Store package (distBookmark-syncer-<version>-Store.appx) to upload in Partner Center
 node scripts/make-demo.js  # remakes docs/screenshot.png from a made-up library
 ```
 

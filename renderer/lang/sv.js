@@ -164,6 +164,7 @@ var SV_STRINGS = {
   'Click, then press the keys you want': 'Klicka och tryck sedan på tangenterna du vill använda',
   'Closing the window keeps the app running in the tray': 'När fönstret stängs fortsätter appen köras i meddelandefältet',
   'Start with Windows (in the tray)': 'Starta med Windows (i meddelandefältet)',
+  'To start the app with Windows, turn it on in Windows Settings → Apps → Startup.': 'Starta appen med Windows genom att slå på den i Windows Inställningar → Appar → Autostart.',
   'Library backups': 'Säkerhetskopior av biblioteket',
   'Choose a backup to go back to': 'Välj en säkerhetskopia att gå tillbaka till',
   'Replace your library with this backup. Your current library is backed up first.': 'Ersätt ditt bibliotek med den här säkerhetskopian. Ditt nuvarande bibliotek säkerhetskopieras först.',

@@ -9,3 +9,4 @@ out/
 .env
 anthropic-key.bin
 settings.json
+!build/appx/*.png

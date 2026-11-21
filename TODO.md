@@ -28,7 +28,7 @@ Ranked by how much each helps the main job (one clean library that stays in step
 - The installer isn't code-signed, so Windows SmartScreen asks for confirmation (*More info → Run anyway*). A signing certificate costs money.
 - Some error messages from the browsers, Ollama or the Claude API that include their own details are shown in English in the Swedish app.
 - The full guide (README, INSTALL) and the privacy policy are in English only.
-- No automatic updates: run the new installer to update.
+- No automatic updates: run the new installer to update. (The Microsoft Store version is updated by the Store.)
 
 - Sorting into folders (extension) moves bookmarks out of their old folders but leaves those folders in place, even when they end up empty. Undo puts everything back.
 - The global shortcut is unavailable while another program uses the same keys; Settings says so, and you can pick other keys.

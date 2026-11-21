@@ -252,14 +252,15 @@ function saveSettings(patch) {
 
 ipcMain.handle('settings:get', () => {
   const { bridgeToken, ...rest } = loadSettings(); // the pairing code is only shown in the extension setup dialog
-  return { ...rest, hotkeyStatus };
+  return { ...rest, hotkeyStatus, storeApp: !!process.windowsStore };
 });
 ipcMain.handle('settings:save', (_e, patch) => {
   const { bridgeToken, ...safe } = patch || {};
   const { bridgeToken: _t, ...rest } = saveSettings(safe);
   if ('watchBrowsers' in safe && autoImport) { if (rest.watchBrowsers) autoImport.start(); else autoImport.stop(); }
   if ('hotkey' in safe || 'hotkeyEnabled' in safe) applyDesktop(rest);
-  if ('startWithWindows' in safe && DESKTOP_HOOKS) trayMod.setStartWithWindows(rest.startWithWindows, __dirname);
+  // The Store version starts with Windows through its own startup task, which Windows turns on and off.
+  if ('startWithWindows' in safe && DESKTOP_HOOKS && !process.windowsStore) trayMod.setStartWithWindows(rest.startWithWindows, __dirname);
   if ('theme' in safe) applyTheme(rest.theme);
   if ('language' in safe && resolveLanguage() !== LANG) {
     LANG = resolveLanguage();

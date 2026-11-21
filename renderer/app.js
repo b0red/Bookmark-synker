@@ -653,6 +653,8 @@ async function openSettings() {
   $('#set-hotkey').value = s.hotkey || '';
   $('#set-tray').checked = !!s.closeToTray;
   $('#set-login').checked = !!s.startWithWindows;
+  $('#login-row').hidden = !!s.storeApp; // the Store version uses a Windows startup task instead
+  $('#login-store').hidden = !s.storeApp;
   showHotkeyStatus(s.hotkeyStatus);
   showCategorizerOptions(s.categorizer);
   $('#dlg-settings').showModal();
