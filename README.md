@@ -29,7 +29,7 @@ Your browsers' own bookmarks are only **read**, except when you click **Sync to 
 You need [Node.js](https://nodejs.org) 20 or newer.
 
 ```powershell
-git clone https://github.com/b0red/bookmark-synker.git bookmark-syncer
+git clone https://github.com/b0red/Bookmark-synker.git bookmark-syncer
 cd bookmark-syncer
 npm install
 npm start
