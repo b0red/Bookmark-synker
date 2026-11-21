@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('api', {
   update: (id, patch) => ipcRenderer.invoke('bookmark:update', id, patch),
   remove: (ids) => ipcRenderer.invoke('bookmark:remove', ids),
   open: (url) => ipcRenderer.invoke('open:url', url),
+  markOpened: (id) => ipcRenderer.invoke('bookmark:opened', id),
   appInfo: () => ipcRenderer.invoke('app:info'),
   bulkUpdate: (ids, patch) => ipcRenderer.invoke('bookmark:bulk', ids, patch),
   setFields: (list) => ipcRenderer.invoke('bookmark:setFields', list),

@@ -45,6 +45,7 @@
           <button id="sel-tags" title="Add or remove tags on all selected bookmarks">Tags…</button>
           <button id="sel-fav" title="Mark all selected as favorites">★ Favorite</button>
           <button id="sel-unfav" title="Remove favorite from all selected">☆ Unfavorite</button>
+          <button id="sel-later" title="Put all selected in Read later (or take them out, if they all are already)">Read later</button>
         </span>
         <button id="sel-delete" class="danger">Delete selected</button>
         <button id="sel-restore" class="primary hidden">Restore selected</button>
@@ -251,6 +252,9 @@
     <label class="check"><input type="checkbox" id="set-import-start"> Import new bookmarks when the app starts</label>
     <label class="check"><input type="checkbox" id="set-watch"> Keep checking while the app is open (about once a minute)</label>
     <p class="muted small">Only browser profiles you have imported before. Bookmarks you deleted here stay deleted.</p>
+
+    <label>Read later</label>
+    <label class="check"><input type="checkbox" id="set-nudge"> Remind me about unread bookmarks (at most once a week)</label>
 
     <div class="row">
       <span class="spacer"></span>

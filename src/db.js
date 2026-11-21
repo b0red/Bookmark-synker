@@ -23,7 +23,9 @@ CREATE TABLE IF NOT EXISTS bookmarks (
   imported_at INTEGER,
   status TEXT,
   status_code INTEGER,
-  checked_at INTEGER
+  checked_at INTEGER,
+  read_later INTEGER,
+  opened_at INTEGER
 );
 CREATE TABLE IF NOT EXISTS sources (
   bookmark_id INTEGER NOT NULL,
@@ -64,6 +66,9 @@ class Library {
     lib.db.run(SCHEMA);
     // 0.3: deleted bookmarks keep a snapshot so they can be restored.
     if (!lib.all('PRAGMA table_info(removed)').some(c => c.name === 'data')) lib.run('ALTER TABLE removed ADD COLUMN data TEXT');
+    // 0.9: "Read later" (when it was queued) and when it was last opened from the app.
+    const cols = lib.all('PRAGMA table_info(bookmarks)').map(c => c.name);
+    for (const c of ['read_later', 'opened_at']) if (!cols.includes(c)) lib.run(`ALTER TABLE bookmarks ADD COLUMN ${c} INTEGER`);
     return lib;
   }
 
@@ -199,6 +204,9 @@ class Library {
         [keep.title || pick('title')[0] || '', keep.category || pick('category')[0] || null, notes,
          all.some(b => b.favorite) ? 1 : 0, added.length ? Math.min(...added) : null,
          used.length ? Math.max(...used) : null, visits.length ? Math.max(...visits) : null, keepId]);
+      const later = pick('read_later'), opened = pick('opened_at');
+      this.run('UPDATE bookmarks SET read_later = ?, opened_at = ? WHERE id = ?',
+        [later.length ? Math.min(...later) : null, opened.length ? Math.max(...opened) : null, keepId]);
       for (const o of others) {
         for (const t of o.tags) this.run('INSERT OR IGNORE INTO tags (bookmark_id, tag) VALUES (?, ?)', [keepId, t]);
         for (const src of o.sources) this.run('INSERT OR IGNORE INTO sources (bookmark_id, source, folder) VALUES (?, ?, ?)', [keepId, src.source, src.folder]);
@@ -225,9 +233,9 @@ class Library {
       this.run('DELETE FROM bookmarks WHERE id = ?', [b.id]);
       this.run(
         'INSERT INTO bookmarks (id, url, norm, title, domain, folder, category, notes, favorite, added_at, last_used_at, ' +
-        'visit_count, imported_at, status, status_code, checked_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'visit_count, imported_at, status, status_code, checked_at, read_later, opened_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [b.id, b.url, b.norm, b.title, b.domain, b.folder, b.category, b.notes, b.favorite, b.added_at, b.last_used_at,
-         b.visit_count, b.imported_at, b.status, b.status_code, b.checked_at]);
+         b.visit_count, b.imported_at, b.status, b.status_code, b.checked_at, b.read_later ?? null, b.opened_at ?? null]);
       this.run('DELETE FROM tags WHERE bookmark_id = ?', [b.id]);
       this.run('DELETE FROM sources WHERE bookmark_id = ?', [b.id]);
       for (const t of b.tags) this.run('INSERT OR IGNORE INTO tags (bookmark_id, tag) VALUES (?, ?)', [b.id, t]);
@@ -258,7 +266,7 @@ class Library {
   }
 
   update(id, patch) {
-    const fields = ['title', 'category', 'notes', 'favorite'];
+    const fields = ['title', 'category', 'notes', 'favorite', 'read_later'];
     for (const f of fields) {
       if (patch[f] !== undefined) this.run(`UPDATE bookmarks SET ${f} = ? WHERE id = ?`, [patch[f], id]);
     }
@@ -267,13 +275,18 @@ class Library {
   }
 
   // One change applied to many bookmarks in a single transaction.
-  // patch: { category?: string|null, favorite?: 0|1, addTags?: string[], removeTags?: string[] }
+  // patch: { category?: string|null, favorite?: 0|1, readLater?: bool, addTags?: string[], removeTags?: string[] }
   bulkUpdate(ids, patch) {
     const clean = (list) => [...new Set((list || []).map(t => String(t).trim().toLowerCase()).filter(Boolean))];
     const add = clean(patch.addTags), rem = clean(patch.removeTags);
+    const now = Date.now();
     this.run('BEGIN');
     try {
       for (const id of ids) {
+        if (patch.readLater !== undefined) {
+          if (!patch.readLater) this.run('UPDATE bookmarks SET read_later = NULL WHERE id = ?', [id]);
+          else this.run('UPDATE bookmarks SET read_later = COALESCE(read_later, ?) WHERE id = ?', [now, id]);
+        }
         if (patch.category !== undefined) this.run('UPDATE bookmarks SET category = ? WHERE id = ?', [patch.category || null, id]);
         if (patch.favorite !== undefined) this.run('UPDATE bookmarks SET favorite = ? WHERE id = ?', [patch.favorite ? 1 : 0, id]);
         for (const t of add) this.run('INSERT OR IGNORE INTO tags (bookmark_id, tag) VALUES (?, ?)', [id, t]);
@@ -293,6 +306,7 @@ class Library {
     try {
       for (const f of list) {
         this.run('UPDATE bookmarks SET category = ?, favorite = ? WHERE id = ?', [f.category ?? null, f.favorite ? 1 : 0, f.id]);
+        if ('read_later' in f) this.run('UPDATE bookmarks SET read_later = ? WHERE id = ?', [f.read_later ?? null, f.id]);
         this.setTags(f.id, f.tags || []);
       }
       this.run('COMMIT');
@@ -300,6 +314,12 @@ class Library {
       this.run('ROLLBACK');
       throw e;
     }
+    this.save();
+  }
+
+  // Opened from the app: remembered for "Read later" (and its nudge).
+  markOpened(id) {
+    this.run('UPDATE bookmarks SET opened_at = ? WHERE id = ?', [Date.now(), id]);
     this.save();
   }
 
@@ -381,6 +401,7 @@ class Library {
         added_at: d?.added_at || null, imported_at: d?.imported_at || r.removed_at,
         last_used_at: d?.last_used_at || null, visit_count: d?.visit_count ?? null,
         status: d?.status || null, status_code: d?.status_code || null,
+        read_later: d?.read_later || null, opened_at: d?.opened_at || null,
         tags: d?.tags || [], sources: d?.sources || [], hasSnapshot: !!d,
       };
     }).filter(Boolean);
@@ -405,6 +426,7 @@ class Library {
           [r.url, r.norm, r.title, r.domain, r.folder, r.category, r.notes, r.favorite, r.added_at, r.last_used_at,
            r.visit_count, r.imported_at, r.status, r.status_code]);
         const newId = this.get('SELECT last_insert_rowid() AS id').id;
+        if (r.read_later || r.opened_at) this.run('UPDATE bookmarks SET read_later = ?, opened_at = ? WHERE id = ?', [r.read_later || null, r.opened_at || null, newId]);
         // Its merged URLs come back as aliases again.
         for (const a of this.all('SELECT norm, data FROM removed WHERE data LIKE ?', ['%"alias_of"%'])) {
           let d = null;

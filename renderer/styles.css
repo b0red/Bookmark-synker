@@ -251,3 +251,7 @@ body.dragging-bookmarks .nav-item[data-type="category"],
 body.dragging-bookmarks .nav-item[data-value="uncategorized"],
 body.dragging-bookmarks .nav-item[data-value="favorites"] { outline: 1px dashed var(--border); outline-offset: -1px; }
 .drag-ghost { position: fixed; top: -100px; left: 0; padding: 4px 10px; border-radius: 6px; background: var(--accent); color: var(--accent-text); font-size: 13px; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Read later */
+.chip.later { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.chip.later.opened { opacity: .55; }

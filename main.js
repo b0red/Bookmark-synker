@@ -57,7 +57,7 @@ async function loadKey() {
 // ---------- settings ----------
 
 const settingsFile = () => path.join(dataDir(), 'settings.json');
-const DEFAULT_SETTINGS = { categorizer: 'rules', ollamaModel: 'qwen2.5:3b', importOnStart: true, watchBrowsers: true };
+const DEFAULT_SETTINGS = { categorizer: 'rules', ollamaModel: 'qwen2.5:3b', importOnStart: true, watchBrowsers: true, readLaterNudge: true };
 
 function loadSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; } catch { return { ...DEFAULT_SETTINGS }; }
@@ -108,6 +108,7 @@ ipcMain.handle('bookmark:remove', (_e, ids) => lib.remove(ids));
 ipcMain.handle('app:info', () => ({ name: app.getName(), version: app.getVersion() }));
 ipcMain.handle('bookmark:bulk', (_e, ids, patch) => lib.bulkUpdate(ids, patch));
 ipcMain.handle('bookmark:setFields', (_e, list) => lib.setFields(list));
+ipcMain.handle('bookmark:opened', (_e, id) => lib.markOpened(id));
 
 // Near-duplicates: merge (returns undo tokens), undo, or mark a group as "not duplicates".
 ipcMain.handle('dups:merge', (_e, keepId, otherIds) => [lib.mergeDuplicates(keepId, otherIds)].filter(Boolean));

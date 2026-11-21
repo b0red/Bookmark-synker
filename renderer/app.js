@@ -18,6 +18,7 @@ const state = {
 const SMART = [
   { id: 'all', name: 'All bookmarks', test: () => true },
   { id: 'favorites', name: 'Favorites', test: b => b.favorite },
+  { id: 'later', name: 'Read later', test: b => !!b.read_later },
   { id: 'uncategorized', name: 'Uncategorized', test: b => !b.category },
   { id: 'never', name: 'No visit history', test: b => !b.last_used_at && !b.visit_count },
   { id: 'stale', name: 'Not opened in a year', test: b => b.last_used_at && b.last_used_at < Date.now() - 365 * DAY },
@@ -178,7 +179,7 @@ function renderSidebar() {
   let html = '<h3>Library</h3>';
   for (const s of SMART) {
     const n = s.id === 'deleted' ? state.deleted.length : items.filter(s.test).length;
-    if (n || ['all', 'favorites', 'uncategorized'].includes(s.id)) html += navItem('smart', s.id, s.name, n);
+    if (n || ['all', 'favorites', 'later', 'uncategorized'].includes(s.id)) html += navItem('smart', s.id, s.name, n);
   }
   const tree = categoryTree(items);
   if (tree.length) {
@@ -240,7 +241,7 @@ function renderList() {
       ${favicon(b)}
       <div class="main-col"><div class="t">${b.favorite ? '<span class="star">★</span> ' : ''}${esc(b.title || b.url)}</div>
       <div class="u">${dupView ? esc(b.url) : esc(b.domain) + (b.folder ? ' · ' + esc(b.folder) : '')}</div></div>
-      <div class="meta">${b.deleted ? `<span class="muted small">deleted ${fmtDate(b.removed_at)}</span>` : ""}${b.category ? `<span class="chip cat">${esc(b.category)}</span>` : ''}${b.deleted ? "" : status}</div>
+      <div class="meta">${b.deleted ? `<span class="muted small">deleted ${fmtDate(b.removed_at)}</span>` : ""}${b.read_later && !b.deleted ? `<span class="chip later${openedSinceQueued(b) ? ' opened' : ''}" title="In Read later since ${fmtDate(b.read_later)}${openedSinceQueued(b) ? ' (opened)' : ''}">later</span>` : ''}${b.category ? `<span class="chip cat">${esc(b.category)}</span>` : ''}${b.deleted ? "" : status}</div>
     </li>`;
   }).join('');
   $('#list').innerHTML = html;
@@ -292,6 +293,7 @@ function renderDetail() {
     <div class="btns">
       <button class="primary" id="d-open">Open</button>
       <button id="d-fav">${b.favorite ? '★ Unfavorite' : '☆ Favorite'}</button>
+      <button id="d-later" title="${b.read_later ? 'Take it out of Read later' : 'Put it in Read later'}">${b.read_later ? '✓ Done reading' : 'Read later'}</button>
       ${b.status === 'dead' || b.status === 'warn' ? '<button id="d-wayback">Wayback Machine</button>' : ''}
       <button class="danger" id="d-remove">Remove</button>
     </div>
@@ -301,7 +303,8 @@ function renderDetail() {
     <label>Notes</label><textarea id="d-notes" placeholder="Why did you save this?">${esc(b.notes)}</textarea>
     <div class="facts">
       <span>Added</span><b>${fmtDate(b.added_at)}</b>
-      <span>Last opened</span><b>${fmtDate(b.last_used_at)}${b.visit_count ? ` · ${b.visit_count} visits` : ''}</b>
+      <span>Last opened</span><b>${fmtDate(Math.max(b.last_used_at || 0, b.opened_at || 0) || null)}${b.visit_count ? ` · ${b.visit_count} visits` : ''}</b>
+      ${b.read_later ? `<span>Read later</span><b>since ${fmtDate(b.read_later)}${openedSinceQueued(b) ? ' · opened' : ' · not opened yet'}</b>` : ''}
       <span>Link</span><b>${statusText}${b.status_code ? ` (${b.status_code})` : ''}${b.checked_at ? ` · ${fmtDate(b.checked_at)}` : ''}</b>
       <span>Saved in</span><b>${browsers.map(esc).join('<br>')}</b>
       <span>Folders</span><b>${[...new Set(b.sources.map(s => s.folder).filter(Boolean))].map(esc).join('<br>') || '—'}</b>
@@ -312,8 +315,9 @@ function renderDetail() {
 
   const save = async (patch) => { await window.api.update(b.id, patch); await reload(); };
   $('#d-close').onclick = () => { state.selectedId = null; renderList(); renderDetail(); };
-  $('#d-open').onclick = $('#d-url').onclick = (e) => { e.preventDefault(); window.api.open(b.url); };
+  $('#d-open').onclick = $('#d-url').onclick = (e) => { e.preventDefault(); openBookmark(b); };
   $('#d-fav').onclick = () => save({ favorite: b.favorite ? 0 : 1 });
+  $('#d-later').onclick = () => toggleReadLater([b.id], !b.read_later);
   if ($('#d-wayback')) $('#d-wayback').onclick = () => window.api.open('https://web.archive.org/web/2/' + b.url);
   $('#d-remove').onclick = () => deleteBookmarks([b.id], `“${b.title || b.url}”`);
   $('#d-title').onchange = (e) => save({ title: e.target.value });
@@ -614,6 +618,7 @@ async function openSettings() {
   $('#ollama-cpu').checked = !!s.ollamaCpuOnly;
   $('#set-import-start').checked = !!s.importOnStart;
   $('#set-watch').checked = !!s.watchBrowsers;
+  $('#set-nudge').checked = s.readLaterNudge !== false;
   showCategorizerOptions(s.categorizer);
   $('#dlg-settings').showModal();
 }
@@ -630,6 +635,7 @@ $('#ollama-model').addEventListener('change', async (e) => {
 });
 $('#ollama-cpu').addEventListener('change', (e) => window.api.saveSettings({ ollamaCpuOnly: e.target.checked }));
 $('#set-import-start').addEventListener('change', (e) => window.api.saveSettings({ importOnStart: e.target.checked }));
+$('#set-nudge').addEventListener('change', (e) => window.api.saveSettings({ readLaterNudge: e.target.checked }));
 $('#set-watch').addEventListener('change', (e) => window.api.saveSettings({ watchBrowsers: e.target.checked }));
 
 // New bookmarks found in a browser (automatic import).
@@ -947,11 +953,58 @@ async function applyCategoryChanges(changes, message) {
   toast(message, 8000, { label: 'Undo', fn: async () => { await window.api.setFields(before); await reload(); toast('Undone.'); } });
 }
 
+// ---------- Read later ----------
+const openedSinceQueued = (b) => !!(b.read_later && b.opened_at && b.opened_at >= b.read_later);
+
+// Opens a bookmark in the browser and remembers that (for Read later).
+function openBookmark(b) {
+  window.api.open(b.url);
+  if (b.deleted) return;
+  b.opened_at = Date.now();
+  window.api.markOpened(b.id);
+  if (b.read_later) { renderList(); if (state.selectedId === b.id) renderDetail(); }
+}
+
+function toggleReadLater(ids, on) {
+  const n = plural(ids.length);
+  return applyToIds(ids, { readLater: on }, on ? `Added ${n} to Read later.` : `Took ${n} out of Read later.`);
+}
+
+// Once a week at most: a gentle reminder about the queue, or about recent bookmarks never opened.
+async function readLaterNudge() {
+  const s = await window.api.getSettings();
+  if (s.readLaterNudge === false) return;
+  const KEY = 'readLaterNudgeAt';
+  let last = 0;
+  try { last = +localStorage.getItem(KEY) || 0; } catch {}
+  if (Date.now() - last < 7 * DAY) return;
+  const show = (value) => () => { state.view = { type: 'smart', value }; state.checked.clear(); renderSidebar(); renderList(); };
+  const waiting = state.items.filter(b => b.read_later && !openedSinceQueued(b));
+  let shown = false;
+  if (waiting.length) {
+    const oldest = Math.min(...waiting.map(b => b.read_later));
+    toast(`Read later: ${plural(waiting.length)} waiting, the oldest since ${fmtDate(oldest)}.`, 10000, { label: 'Show', fn: show('later') });
+    shown = true;
+  } else {
+    // Saved in the last 3 months (but not this week) and never opened anywhere.
+    const now = Date.now();
+    const unopened = state.items.filter(b => {
+      const t = b.added_at || b.imported_at;
+      return t && t > now - 90 * DAY && t < now - 7 * DAY && !b.last_used_at && !b.visit_count && !b.opened_at && !b.read_later;
+    });
+    if (unopened.length >= 3) {
+      toast(`You saved ${plural(unopened.length)} in the last 3 months and never opened them. Put some in Read later?`, 10000, { label: 'Show', fn: show('never') });
+      shown = true;
+    }
+  }
+  if (shown) try { localStorage.setItem(KEY, String(Date.now())); } catch {}
+}
+
 async function applyToIds(ids, patch, message) {
   if (!ids.length) return;
   const set = new Set(ids);
   const before = state.items.filter(b => set.has(b.id))
-    .map(b => ({ id: b.id, category: b.category, favorite: b.favorite, tags: [...b.tags] }));
+    .map(b => ({ id: b.id, category: b.category, favorite: b.favorite, tags: [...b.tags], read_later: b.read_later }));
   await window.api.bulkUpdate(ids, patch);
   await reload();
   toast(message, 8000, {
@@ -985,6 +1038,10 @@ function openBulk(mode) {
 $('#sel-cat').onclick = () => openBulk('category');
 $('#sel-tags').onclick = () => openBulk('tags');
 $('#sel-fav').onclick = () => bulkApply({ favorite: 1 }, `Marked ${plural(state.checked.size)} as favorites.`);
+$('#sel-later').onclick = () => {
+  const sel = state.items.filter(b => state.checked.has(b.id));
+  toggleReadLater(sel.map(b => b.id), !sel.every(b => b.read_later));
+};
 $('#sel-unfav').onclick = () => bulkApply({ favorite: 0 }, `Removed favorite from ${plural(state.checked.size)}.`);
 $('#bulk-cancel').onclick = () => $('#dlg-bulk').close();
 $('#bulk-form').addEventListener('submit', () => {
@@ -1110,12 +1167,12 @@ $('#list').addEventListener('dblclick', (e) => {
   const li = e.target.closest('li');
   if (e.target.classList.contains('pick') || e.ctrlKey || e.shiftKey) return;
   const b = li && state.items.find(x => x.id === +li.dataset.id);
-  if (b) window.api.open(b.url);
+  if (b) openBookmark(b);
 });
 
 $('#search').addEventListener('input', (e) => { state.query = e.target.value; renderList(); });
 $('#search').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && state.visible[0]) window.api.open(state.visible[0].url);
+  if (e.key === 'Enter' && state.visible[0]) openBookmark(state.visible[0]);
   if (e.key === 'Escape') { e.target.value = ''; state.query = ''; renderList(); }
 });
 $('#sort').addEventListener('change', (e) => { state.sort = e.target.value; renderList(); });
@@ -1141,7 +1198,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-reload();
+reload().then(() => setTimeout(readLaterNudge, 4000));
 
 // ---------- resizable library pane ----------
 
@@ -1222,7 +1279,7 @@ reload();
     clearTarget();
   });
 
-  const targetOf = (e) => e.target.closest('.nav-item[data-type="category"], .nav-item[data-value="uncategorized"], .nav-item[data-value="favorites"]');
+  const targetOf = (e) => e.target.closest('.nav-item[data-type="category"], .nav-item[data-value="uncategorized"], .nav-item[data-value="favorites"], .nav-item[data-value="later"]');
   function clearTarget() {
     clearTimeout(hoverTimer);
     for (const el of document.querySelectorAll('.nav-item.drop-target')) el.classList.remove('drop-target');
@@ -1254,6 +1311,7 @@ reload();
     const ids = dragIds;
     const n = plural(ids.length);
     if (t.dataset.value === 'favorites') return applyToIds(ids, { favorite: 1 }, `Marked ${n} as favorites.`);
+    if (t.dataset.value === 'later') return toggleReadLater(ids, true);
     if (t.dataset.value === 'uncategorized') return applyToIds(ids, { category: null }, `Made ${n} uncategorized.`);
     const cat = t.dataset.value;
     applyToIds(ids, { category: cat }, `Moved ${n} to “${cat}”.`);
