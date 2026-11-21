@@ -31,15 +31,25 @@ function listDirs(dir) {
 function detectSources() {
   const found = [];
 
+  const addChromium = (browser, userData) => {
+    const localState = readJson(path.join(userData, 'Local State'));
+    const names = (localState && localState.profile && localState.profile.info_cache) || {};
+    // Profiles are subfolders (Default, Profile 1, ...). Older Opera keeps Bookmarks in the user-data folder itself.
+    const candidates = [['', path.join(userData, 'Bookmarks')], ...listDirs(userData).map(p => [p, path.join(userData, p, 'Bookmarks')])];
+    for (const [prof, file] of candidates) {
+      if (!fs.existsSync(file)) continue;
+      const pretty = prof ? (names[prof] && names[prof].name ? `${names[prof].name} (${prof})` : prof) : 'Default';
+      found.push({ type: 'chromium', browser, profile: pretty, path: file, label: `${browser} · ${pretty}` });
+    }
+  };
+
   for (const b of CHROMIUM_BROWSERS) {
     if (!fs.existsSync(b.dir)) continue;
-    const localState = readJson(path.join(b.dir, 'Local State'));
-    const names = (localState && localState.profile && localState.profile.info_cache) || {};
-    for (const prof of listDirs(b.dir)) {
-      const file = path.join(b.dir, prof, 'Bookmarks');
-      if (!fs.existsSync(file)) continue;
-      const pretty = names[prof] && names[prof].name ? `${names[prof].name} (${prof})` : prof;
-      found.push({ type: 'chromium', browser: b.name, profile: pretty, path: file, label: `${b.name} · ${pretty}` });
+    if (b.flat) {
+      // Opera: "Opera Software\Opera Stable", "Opera Software\Opera GX Stable", ...
+      for (const sub of listDirs(b.dir)) addChromium(sub.replace(/\s+Stable$/i, ''), path.join(b.dir, sub));
+    } else {
+      addChromium(b.name, b.dir);
     }
   }
 

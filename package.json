@@ -1,7 +1,7 @@
 {
   "name": "bookmark-library",
   "productName": "Bookmark Library",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Import bookmarks from all your browsers into one organized library.",
   "main": "main.js",
   "private": true,

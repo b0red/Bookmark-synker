@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 (2026-11-21)
+
+- Opera (and Opera GX) profiles are now found by Import and Sync to browsers (newer Opera keeps bookmarks in `Opera Stable\Default`)
+- Import results say how many were merged into existing bookmarks or skipped because you deleted them, with a "show them" link
+
 ## 0.2.0 (2026-11-20)
 
 - Multi-select in the list: checkboxes, Ctrl+click, Shift+click ranges, Ctrl+A, and **Delete selected** (or the Del key)

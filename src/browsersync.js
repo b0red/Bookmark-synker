@@ -8,6 +8,8 @@ const { detectSources } = require('./importers');
 const { normalizeUrl } = require('./normalize');
 
 const EXE = { Chrome: 'chrome.exe', Chromium: 'chrome.exe', Edge: 'msedge.exe', Brave: 'brave.exe', Vivaldi: 'vivaldi.exe', Opera: 'opera.exe', Firefox: 'firefox.exe' };
+// "Opera" and "Opera GX" both run as opera.exe.
+const exeOf = (browser) => EXE[browser] || (/^opera/i.test(browser) ? 'opera.exe' : '');
 
 function runningProcesses() {
   return new Promise(resolve => {
@@ -176,7 +178,7 @@ async function plan(removedNorms, SQL) {
   const running = await runningProcesses();
   const out = [];
   for (const s of detectSources()) {
-    const entry = { label: s.label, browser: s.browser, path: s.path, running: running.has(EXE[s.browser]), matches: [], synced: false };
+    const entry = { label: s.label, browser: s.browser, path: s.path, running: running.has(exeOf(s.browser)), matches: [], synced: false };
     try {
       Object.assign(entry, s.type === 'firefox' ? firefoxPlan(s.path, removed, SQL) : chromiumPlan(s.path, removed));
     } catch (e) {
@@ -192,7 +194,7 @@ async function apply(labels, removedNorms, SQL) {
   const running = await runningProcesses();
   const results = [];
   for (const s of detectSources().filter(x => labels.includes(x.label))) {
-    if (running.has(EXE[s.browser])) {
+    if (running.has(exeOf(s.browser))) {
       results.push({ label: s.label, error: `${s.browser} is running. Close it completely (check the system tray) and try again.` });
       continue;
     }

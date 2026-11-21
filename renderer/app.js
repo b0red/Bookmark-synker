@@ -268,7 +268,11 @@ async function openImport() {
 function showImportResults(results) {
   $('#import-result').innerHTML = results.map(r => r.error
     ? `<div class="err">${esc(r.label)}: ${esc(r.error)}</div>`
-    : `<div>${esc(r.label)}: ${r.found} found, <b>${r.added} new</b>, ${r.merged} already in library</div>`).join('');
+    : `<div><b>${esc(r.label)}</b>: ${r.found} found · <b>${r.added} new</b> · ${r.merged} were already in the library (merged)` +
+      (r.skipped ? ` · ${r.skipped} skipped because you deleted them earlier` : '') +
+      (r.added + r.merged ? ` · <a href="#" data-source="${esc(r.label)}">show them</a>` : '') + '</div>').join('') +
+    (results.some(r => !r.error && r.found && !r.added)
+      ? '<div class="muted small">Nothing new usually means these bookmarks were already imported from another browser. They are merged, and this source is added to each one.</div>' : '');
 }
 
 $('#import-go').onclick = async () => {
@@ -288,6 +292,17 @@ $('#import-html').onclick = async () => {
   if (results.length) { showImportResults(results); await reload(); }
 };
 $('#import-close').onclick = () => $('#dlg-import').close();
+// "show them" jumps to the source view for that import.
+$('#import-result').addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-source]');
+  if (!a) return;
+  e.preventDefault();
+  $('#dlg-import').close();
+  state.view = { type: 'source', value: a.dataset.source };
+  state.checked.clear();
+  state.query = ''; $('#search').value = '';
+  renderSidebar(); renderList();
+});
 
 // ---------- sync deletions to browsers ----------
 
