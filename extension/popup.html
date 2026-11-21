@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Bookmark syncer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header><b>Bookmark syncer</b> <span class="muted">helper</span></header>
+
+  <!-- 1. Pairing -->
+  <section id="v-pair" class="hidden">
+    <p>Paste the <b>pairing code</b> from the app: <i>Sync to browsers → Set up the browser extension</i>.</p>
+    <input id="pair-code" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" spellcheck="false">
+    <p id="pair-error" class="err hidden"></p>
+    <button id="pair-save" class="primary">Connect</button>
+  </section>
+
+  <!-- 2. App not running -->
+  <section id="v-offline" class="hidden">
+    <p><b>Bookmark syncer isn't running.</b></p>
+    <p class="muted">Open the app on this PC, then try again.</p>
+    <button id="offline-retry" class="primary">Try again</button>
+  </section>
+
+  <!-- 3. Preview / delete -->
+  <section id="v-main" class="hidden">
+    <p id="main-summary"></p>
+    <ul id="main-list" class="list"></ul>
+    <button id="main-delete" class="primary danger">Delete them in this browser</button>
+    <p class="muted small">Deleted through the browser itself, so your browser account sync removes them on your other devices too. You can undo the last run here.</p>
+  </section>
+
+  <!-- 4. Result -->
+  <section id="v-done" class="hidden">
+    <p id="done-summary"></p>
+    <button id="done-undo">Undo</button>
+  </section>
+
+  <footer>
+    <span id="status" class="muted small"></span>
+    <a href="#" id="unpair" class="small">Change pairing code</a>
+  </footer>
+
+  <script src="normalize.js"></script>
+  <script src="core.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

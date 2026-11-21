@@ -372,15 +372,16 @@ async function loadSyncPlan() {
     plan.filter(p => p.matches.length || p.error).map((p, i) => {
       const n = p.matches.length;
       const notes = [];
-      if (p.running) notes.push(`<span class="warn-text">${esc(p.browser)} is running. Close it completely first (also check the system tray).</span>`);
-      if (p.synced) notes.push(`<span class="warn-text">This profile syncs with your ${p.browser === 'Firefox' ? 'Firefox' : esc(p.browser)} account. ${p.browser === 'Firefox'
-        ? 'Firefox Sync should pass the deletions on to your other devices.'
-        : 'The sync server may put deleted bookmarks back. Click “Check again” after reopening the browser to see if any returned.'}</span>`);
+      // Synced Chromium profiles: deleting in the file can be undone by the sync server, so the extension is the way.
+      const useExt = p.synced && p.browser !== 'Firefox';
+      if (useExt) notes.push(`<span class="warn-text">This profile syncs with your ${esc(p.browser)} account, so its sync server may put file deletions back. <b>Use the browser extension for this one</b> (works with ${esc(p.browser)} open).</span>`);
+      else if (p.synced) notes.push('<span class="muted">Syncs with your Firefox account. Firefox Sync passes the deletions on to your other devices.</span>');
+      if (p.running && !useExt) notes.push(`<span class="warn-text">${esc(p.browser)} is running. Close it completely first (also check the system tray).</span>`);
       if (p.error) notes.push(`<span class="err">${esc(p.error)}</span>`);
       const preview = p.matches.slice(0, 8).map(m => `<div class="p">• ${esc(m.title || m.url)} <span class="muted">${esc(m.folder)}</span></div>`).join('') +
         (n > 8 ? `<div class="p">… and ${n - 8} more</div>` : '');
       const idx = plan.indexOf(p);
-      return `<label class="sync-src"><input type="checkbox" data-i="${idx}" ${n && !p.running && !p.error ? 'checked' : ''} ${n && !p.error ? '' : 'disabled'}>
+      return `<label class="sync-src"><input type="checkbox" data-i="${idx}" ${n && !p.running && !p.error && !useExt ? 'checked' : ''} ${n && !p.error ? '' : 'disabled'}>
         <div><div><b>${esc(p.label)}</b>: ${n} to delete</div>${notes.map(x => `<div class="p">${x}</div>`).join('')}${preview}</div></label>`;
     }).join('');
 }
@@ -625,6 +626,60 @@ $('#sel-delete').onclick = () => {
   deleteBookmarks([...state.checked], `${n} selected bookmark${n === 1 ? '' : 's'}`);
 };
 $('#sel-restore').onclick = () => restoreBookmarks([...state.checked]);
+
+// ---------- browser extension setup ----------
+
+function ago(ms) {
+  const s = Math.round((Date.now() - ms) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  return `${Math.round(s / 3600)} h ago`;
+}
+
+async function refreshExtDialog() {
+  const info = await window.api.bridgeInfo();
+  $('#ext-folder').textContent = info.folder;
+  $('#ext-token').textContent = info.token;
+  const seen = (info.contacts || []).map(c => `${esc(c.browser)} (${ago(c.at)})`).join(', ');
+  $('#ext-status').innerHTML = info.error
+    ? `<span class="err">The connection for the extension isn't available: ${esc(info.error)}</span>`
+    : info.listening
+      ? `<span class="ok-text">● Ready for the extension</span> <span class="muted">(only on this PC, while the app is open)</span>` +
+        (seen ? `<br><span class="muted">Last connected: ${seen}</span>` : '')
+      : '<span class="muted">Starting…</span>';
+}
+
+async function openExtDialog() {
+  await refreshExtDialog();
+  $('#dlg-ext').showModal();
+}
+
+$('#sync-ext').onclick = openExtDialog;
+$('#ext-close').onclick = () => $('#dlg-ext').close();
+$('#ext-open').onclick = () => window.api.bridgeOpenFolder();
+$('#ext-copy').onclick = async () => {
+  await window.api.copyText($('#ext-token').textContent);
+  $('#ext-copy').textContent = 'Copied';
+  setTimeout(() => { $('#ext-copy').textContent = 'Copy'; }, 1500);
+};
+$('#ext-new').onclick = async () => {
+  if (!confirm('Make a new pairing code? Browsers using the old code will ask for the new one.')) return;
+  await window.api.bridgeNewToken();
+  await refreshExtDialog();
+};
+for (const id of ['#ext-url-chrome', '#ext-url-edge']) {
+  $(id).title = 'Click to copy';
+  $(id).style.cursor = 'pointer';
+  $(id).onclick = async () => { await window.api.copyText($(id).textContent); toast(`Copied ${$(id).textContent}. Paste it in the browser's address bar.`); };
+}
+
+// The extension reports back after it deletes (or undoes) in a browser.
+window.api.onBridgeReport(async (r) => {
+  if ($('#dlg-ext').open) refreshExtDialog();
+  if (r.undone) return toast(`${r.browser}: the extension put its last deletions back.`, 7000);
+  toast(`${r.browser}: the extension deleted ${plural(r.removed)}${r.failed ? ` (${r.failed} couldn't be deleted)` : ''}. Browser sync takes it from here.`, 8000);
+  if ($('#dlg-sync').open) loadSyncPlan();
+});
 
 // ---------- rename / merge a category ----------
 

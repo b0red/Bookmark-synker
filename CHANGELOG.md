@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 (2026-11-21)
+
+- **Bookmark syncer helper**, a browser extension for Chrome, Edge, Brave, Vivaldi and Opera. It deletes the bookmarks you deleted in the app through the browser itself, so Google / Microsoft account sync removes them everywhere instead of putting them back. It shows a preview first, works while the browser is open, and has **Undo** (back to the same folder and position)
+- The app talks to the extension over `127.0.0.1` only, with a pairing code. Set it up under **Sync to browsers → Set up the browser extension…**
+- The Sync dialog marks Chromium profiles that use browser sync and leaves them unticked, pointing to the extension instead
+
 ## 0.5.0 (2026-11-21)
 
 - Right-click a category: **Rename or merge…** (typing an existing name merges, case-insensitive), **Remove category**, **Delete all**, each with Undo

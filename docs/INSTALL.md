@@ -81,7 +81,36 @@ A backup of each file is saved next to it, named `Bookmarks.bookmark-syncer-back
 **About browser sync accounts**
 
 - **Firefox Sync**: deletions are recorded the way Firefox itself does it, so they should reach your other devices.
-- **Chrome / Edge sync**: these browsers don't expect their file to change while they're closed, and the sync server may put the bookmarks back when the browser starts. After reopening the browser, close it again and click **Check again**. If bookmarks came back, either delete them once in the browser itself, or turn off bookmark sync, run the sync, and turn it on again.
+- **Chrome / Edge / Brave / Vivaldi / Opera with sync turned on**: these browsers don't expect their file to change while they're closed, and the sync server puts the bookmarks back. Use the **browser extension** (next section) for these. The Sync dialog marks such profiles and leaves them unticked.
+
+## 7. The browser extension (Chrome, Edge and other Chromium browsers)
+
+The **Bookmark syncer helper** extension deletes bookmarks through the browser itself, so the browser's own sync removes them on all your devices. It works while the browser is open, so you don't need to close anything.
+
+**Install it once per browser** (it isn't in the Chrome Web Store, so it's loaded from the project folder):
+
+1. In the app, click **Sync to browsers → Set up the browser extension…**. Keep that window open; it has the folder and the pairing code.
+2. In the browser, open `chrome://extensions` (Chrome, Brave, Vivaldi), `edge://extensions` (Edge) or `opera://extensions` (Opera).
+3. Turn on **Developer mode** (top right in Chrome, in the left side panel in Edge).
+4. Click **Load unpacked** and choose the `extension` folder inside the project (the app's **Open folder** button shows it).
+5. Pin it: click the puzzle-piece icon in the toolbar, then the pin next to *Bookmark syncer helper*.
+6. Click the extension's icon, paste the **pairing code** from the app and click **Connect**.
+
+**Using it**
+
+1. Delete bookmarks in the app as usual.
+2. With the app open, click the extension's icon in the browser. It lists the bookmarks in this browser that you deleted in the app.
+3. Click **Delete them in this browser**. The app shows a message when it's done.
+4. Changed your mind? Click **Undo** in the extension to put the last run back in the same folders and positions. To keep them for good, also restore them under *Recently deleted* in the app.
+
+**How it stays private and safe**
+
+- The app listens only on `127.0.0.1` (port 47615, this PC only) and only while it's open.
+- It answers only the extension, and only with the right pairing code. Web pages can't read your deleted-bookmarks list. Click **New code** in the app to disconnect every paired browser.
+- The extension never sends your bookmarks anywhere. It only reads the list of deleted URLs from the app and reports how many it removed.
+- Chrome may show a "Disable developer mode extensions" banner at startup. Click the × to keep it.
+
+**Updating the extension**: after `git pull`, open the extensions page and click the reload icon on *Bookmark syncer helper*.
 
 ## Troubleshooting
 
@@ -98,7 +127,9 @@ A backup of each file is saved next to it, named `Bookmarks.bookmark-syncer-back
 | Firefox: "File is locked" | Close Firefox and import again. |
 | Sync: "… is running" although the window is closed | The browser is still running in the background. Close it from the system tray, or end it in Task Manager. |
 | Sync: "Firefox did not shut down cleanly" | Open Firefox, close it normally, then try again. |
-| Bookmarks came back after syncing (Chrome/Edge) | See *About browser sync accounts* above. |
+| Bookmarks came back after syncing (Chrome/Edge) | Browser sync restores file edits. Use the browser extension (section 7). |
+| Extension: "Bookmark syncer isn't running" | Open the app, then click **Try again**. If the app's extension window says the port is in use, the app is probably open twice. |
+| Extension: "That code doesn't match" | Copy the code again from the app (it changes if you click **New code**). |
 
 ## Updating
 

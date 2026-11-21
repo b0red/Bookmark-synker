@@ -2,7 +2,8 @@
 
 ## Next up
 
-- [ ] **Chrome/Edge sync**: find a way to delete that the sync server respects (e.g. a small browser extension using the bookmarks API)
+- [ ] **Firefox version of the extension** (Firefox Sync already works with the file-based sync, so this is only for convenience)
+- [ ] **Publish the extension** to the Chrome Web Store / Edge Add-ons, so Developer mode isn't needed
 - [ ] **Restore from backup** button in the Sync dialog
 - [ ] **Remember the Ollama CPU fallback** between runs (it's re-detected each session now)
 - [ ] **Installer**: a packaged `.exe` with electron-builder so Node.js isn't needed
@@ -24,5 +25,6 @@
 - Ollama on older NVIDIA cards (e.g. GTX 900 series) crashes on the GPU. The app falls back to CPU, which is slow.
 - Safari and Chromium-based browsers in unusual install locations aren't auto-detected. Use the `bookmarks.html` import.
 - Only tested on Windows 10.
-- Sync to browsers: with Chrome or Edge sync turned on, the sync server may restore deleted bookmarks.
-- Sync to browsers deletes by URL, so a URL saved in several folders of the same browser is removed from all of them.
+- Sync to browsers (file-based): with Chrome or Edge sync turned on, the sync server restores deleted bookmarks. Use the browser extension for those profiles.
+- Sync to browsers and the extension delete by URL, so a URL saved in several folders of the same browser is removed from all of them.
+- The extension is loaded in Developer mode, so Chrome may show a "Disable developer mode extensions" banner at startup.

@@ -5,6 +5,7 @@ out/
 *.sqlite
 *.png
 !docs/*.png
+!extension/*.png
 .env
 anthropic-key.bin
 settings.json

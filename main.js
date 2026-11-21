@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, clipboard } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { Library } = require('./src/db');
@@ -8,6 +8,7 @@ const ollama = require('./src/ollama');
 const rules = require('./src/rules');
 const { checkAll } = require('./src/linkcheck');
 const browserSync = require('./src/browsersync');
+const { startBridge, newToken } = require('./src/bridge');
 
 let win, lib;
 const dataDir = () => app.getPath('userData');
@@ -118,13 +119,38 @@ ipcMain.handle('key:save', async (_e, key) => {
   return true;
 });
 
-ipcMain.handle('settings:get', () => loadSettings());
-ipcMain.handle('settings:save', (_e, patch) => {
+function saveSettings(patch) {
   const next = { ...loadSettings(), ...patch };
   fs.mkdirSync(dataDir(), { recursive: true });
   fs.writeFileSync(settingsFile(), JSON.stringify(next, null, 2));
   return next;
+}
+
+ipcMain.handle('settings:get', () => {
+  const { bridgeToken, ...rest } = loadSettings(); // the pairing code is only shown in the extension setup dialog
+  return rest;
 });
+ipcMain.handle('settings:save', (_e, patch) => {
+  const { bridgeToken, ...safe } = patch || {};
+  const { bridgeToken: _t, ...rest } = saveSettings(safe);
+  return rest;
+});
+
+// ---------- browser extension bridge ----------
+
+let bridge = null;
+const extensionDir = () => path.join(__dirname, 'extension');
+
+function bridgeToken() {
+  let t = loadSettings().bridgeToken;
+  if (!t) t = saveSettings({ bridgeToken: newToken() }).bridgeToken;
+  return t;
+}
+
+ipcMain.handle('bridge:info', () => ({ token: bridgeToken(), folder: extensionDir(), ...(bridge ? bridge.status() : { listening: false }) }));
+ipcMain.handle('bridge:newToken', () => saveSettings({ bridgeToken: newToken() }).bridgeToken);
+ipcMain.handle('bridge:openFolder', () => shell.openPath(extensionDir()));
+ipcMain.handle('clipboard:write', (_e, text) => { clipboard.writeText(String(text)); return true; });
 ipcMain.handle('ollama:status', (_e, model) => ollama.status(model || loadSettings().ollamaModel));
 
 // Long-running jobs (categorize, link check) can be cancelled from the progress bar.
@@ -247,6 +273,14 @@ app.whenReady().then(async () => {
   migrateOldData();
   lib = await Library.open(path.join(dataDir(), 'library.sqlite'));
   createWindow();
+  if (!process.env.BMLIB_NO_BRIDGE) {
+    bridge = startBridge({
+      getToken: bridgeToken,
+      getDeletedNorms: () => lib.removedNorms(),
+      appVersion: app.getVersion(),
+      onReport: (r) => send('bridge-report', r),
+    });
+  }
   if (process.env.BMLIB_SNAPSHOT) {
     win.webContents.on('console-message', (e) => { if (e.level === 'warning' || e.level === 'error') console.log('[renderer]', e.message); });
     win.webContents.once('did-finish-load', () => setTimeout(async () => {

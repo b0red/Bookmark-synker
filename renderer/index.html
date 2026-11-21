@@ -113,6 +113,31 @@
     </div>
   </dialog>
 
+  <dialog id="dlg-ext">
+    <h2>Browser extension</h2>
+    <p class="muted">The <b>Bookmark syncer helper</b> works in Chrome, Edge, Brave, Vivaldi and Opera. It asks this app which bookmarks you deleted and removes them through the browser, so your Google or Microsoft account sync removes them everywhere.</p>
+    <p id="ext-status" class="small"></p>
+
+    <h3>Install it once per browser</h3>
+    <ol class="howto">
+      <li>Open the extensions page: type <code id="ext-url-chrome">chrome://extensions</code> in Chrome or <code id="ext-url-edge">edge://extensions</code> in Edge.</li>
+      <li>Turn on <b>Developer mode</b> (top right in Chrome, left side in Edge).</li>
+      <li>Click <b>Load unpacked</b> and choose this folder:<br>
+        <code id="ext-folder" class="path"></code> <button id="ext-open" class="tiny">Open folder</button></li>
+      <li>Pin it: click the puzzle icon in the toolbar, then the pin next to <i>Bookmark syncer helper</i>.</li>
+      <li>Click the extension's icon and paste this pairing code:<br>
+        <code id="ext-token" class="token"></code> <button id="ext-copy" class="tiny">Copy</button> <button id="ext-new" class="tiny" title="Makes a new code. Browsers using the old one must paste the new one.">New code</button></li>
+    </ol>
+
+    <h3>Using it</h3>
+    <p class="small">Delete bookmarks in this app as usual. Then, with this app open, click the extension's icon in each browser. It shows which bookmarks it found and deletes them when you confirm. It can <b>undo</b> the last run.</p>
+
+    <div class="row">
+      <span class="spacer"></span>
+      <button id="ext-close" class="primary">Close</button>
+    </div>
+  </dialog>
+
   <dialog id="dlg-cat">
     <form method="dialog" id="cat-form">
       <h2 id="cat-title"></h2>
@@ -154,6 +179,10 @@
   <dialog id="dlg-sync">
     <h2>Sync deletions to browsers</h2>
     <p class="muted">Removes the bookmarks you deleted in this app from your browsers' own bookmarks. Each browser must be fully closed, and every file is backed up first.</p>
+    <div class="ext-tip">
+      <div><b>Chrome or Edge with sync turned on?</b> Use the helper extension for those. It deletes through the browser itself, so sync keeps them deleted, and the browser can stay open.</div>
+      <button id="sync-ext">Set up the browser extension…</button>
+    </div>
     <div id="sync-sources" class="sources"></div>
     <div id="sync-result" class="result"></div>
     <div class="row">

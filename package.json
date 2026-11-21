@@ -1,14 +1,14 @@
 {
   "name": "bookmark-syncer",
   "productName": "Bookmark syncer",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Import bookmarks from all your browsers into one organized library.",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
     "smoke": "node scripts/smoke.js",
-    "test": "node scripts/test-db.js && node scripts/test-sync.js"
+    "test": "node scripts/test-db.js && node scripts/test-sync.js && node scripts/test-extension.js"
   },
   "license": "GPL-3.0-only",
   "type": "commonjs",
