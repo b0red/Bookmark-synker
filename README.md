@@ -30,7 +30,7 @@ Your browsers' own bookmarks are only **read**, except when you click **Sync to 
 | **Clean up** | Right-click **Not opened in a year**, **Dead links** or **Links with problems** → *Delete all*. Deleted links stay deleted on future imports. |
 | **Tidy categories** | Right-click a category → *Rename or merge…* (type an existing name to merge), *Remove category* or *Delete all*. All with Undo. |
 | **Sync to browsers** | Removes what you deleted here from the browsers' own bookmarks too. It shows a preview first, needs the browser closed, and backs up every file. **Restore from backup…** puts any of those files back. |
-| **Browser extension** | For Chrome, Edge, Brave, Vivaldi, Opera and Firefox: the *Bookmark syncer helper* deletes through the browser itself while it's open, so the browser's sync passes the deletions to all your devices. Preview, one click, Undo. See [docs/INSTALL.md](docs/INSTALL.md#7-the-browser-extension). |
+| **Browser extension** | For Chrome, Edge, Brave, Vivaldi, Opera and Firefox (see [Supported browsers](#supported-browsers)): the *Bookmark syncer helper* deletes through the browser itself while it's open, so the browser's sync passes the deletions to all your devices. Preview, one click, Undo. See [docs/INSTALL.md](docs/INSTALL.md#7-the-browser-extension). |
 | **This page, from the browser** | Click the extension's icon on any page to see whether it's in your library, and set its category, tags, notes and Read later right there. **Save to library** adds it if it's new. |
 | **Categories as folders** | The extension can also **sort the browser's bookmarks into folders** by their category (*Other bookmarks → Bookmark syncer → Cooking → Baking*). It only moves them, shows a preview, and **Undo** puts each one back exactly where it was. |
 | **Light or dark, English or Swedish** | ⚙ Settings → *Appearance*: follow Windows, or pick light or dark, and the language (English or Svenska; by default the same as Windows). The extension follows the browser's language. |
@@ -41,9 +41,37 @@ Your browsers' own bookmarks are only **read**, except when you click **Sync to 
 | **Rediscover** | Opens a random bookmark from the current view. |
 | **Export** | Saves the current view as `bookmarks.html`, grouped by category, which any browser can import. |
 
+## Supported browsers
+
+The app only lists browsers that are installed on the PC; the others never show up.
+
+| Browser | Import | Sync to browsers (file) | Browser extension |
+|---|---|---|---|
+| Chrome, Edge, Brave, Vivaldi, Opera / Opera GX, Chromium | ✓ | ✓ (with browser sync on, use the extension) | ✓ |
+| Comet (Perplexity) | ✓ | ✓ (with browser sync on, use the extension) | Should work (Chromium-based), not tested |
+| Firefox | ✓ | ✓, also with Firefox Sync | ✓ (signed privately, or as a temporary add-on) |
+| Zen, Floorp, Waterfox | ✓ | ✓, also with Firefox Sync | Should work (Firefox-based), not tested |
+| DuckDuckGo | Only through a `bookmarks.html` export: its bookmarks are stored encrypted, and the app doesn't open them | ✗ | ✗ (DuckDuckGo for Windows doesn't support extensions) |
+| Any other browser | Through a `bookmarks.html` export | ✗ | ✗ |
+
+Browsers installed in an unusual place (a portable copy, a custom profile folder) aren't found automatically. Export their bookmarks to `bookmarks.html` and import that.
+
+## What it doesn't do
+
+- **It doesn't sync bookmarks between PCs or devices** on its own. Your browsers' own sync (Google, Microsoft, Firefox accounts) does that; Bookmark syncer works with it. To move the library to another PC, use *Export library…* and *Import library…*.
+- **It doesn't add bookmarks to your browsers.** *Sync to browsers* only removes the ones you deleted in the app, and the extension only removes or moves (sorts) them. To put bookmarks into a browser, use **Export** and import the `bookmarks.html` there.
+- **It doesn't read your browsing history, passwords, cookies or page contents**, only the bookmarks (and, for Firefox-based browsers, how often a bookmarked page was visited).
+- **It doesn't decrypt anything.** Browsers that encrypt their bookmarks (DuckDuckGo) are only imported through an export you make yourself.
+- **It doesn't save copies of pages.** A dead link gets a link to the Wayback Machine instead.
+- **It only runs on Windows** (tested on Windows 10). No Mac, Linux or phone version.
+- **It doesn't update itself.** Run the new installer, or install from the Microsoft Store, which updates the app.
+- **It isn't in the browsers' extension stores.** You load the extension yourself (see [docs/INSTALL.md](docs/INSTALL.md#7-the-browser-extension)).
+
 ## Quick start
 
-**Installer:** run `Bookmark-syncer-Setup-<version>.exe` (no Node.js needed). It isn't code-signed, so Windows asks you to confirm: *More info → Run anyway*. Build it with `npm run dist`.
+**Installer:** run `Bookmark-syncer-Setup-<version>.exe` from the [Releases page](https://github.com/b0red/Bookmark-synker/releases) (no Node.js needed). It isn't code-signed, so Windows asks you to confirm: *More info → Run anyway*. Build it with `npm run dist`.
+
+**Microsoft Store:** the app is also on its way to the Microsoft Store (as *bookmarker*). The Store version is signed by Microsoft, so there's no SmartScreen warning, and the Store keeps it up to date. It uses the same library folder as the installer.
 
 **From the source code:** you need [Node.js](https://nodejs.org) 20 or newer.
 
@@ -92,10 +120,12 @@ No account, no telemetry, no analytics: the developer receives nothing. Full det
 ```powershell
 npm test       # library tests, "sync to browsers" on COPIES of your browser files (the real ones aren't touched),
                # the extension bridge + logic on in-memory copies of your bookmark trees, duplicates,
-               # automatic import and Read later on throwaway libraries, and the Swedish translation check
+               # automatic import and Read later on throwaway libraries, detection of the extra browsers
+               # (Comet, Zen, Floorp, Waterfox, DuckDuckGo) in a made-up AppData folder, and the Swedish translation check
 npm run check-i18n  # lists texts without a Swedish translation (renderer/lang/sv.js, extension/i18n.js)
 npm run smoke  # prints bookmark counts per browser profile
-npm run dist   # builds the Windows installer in dist\nnpm run dist:store  # builds the Microsoft Store package (distBookmark-syncer-<version>-Store.appx) to upload in Partner Center
+npm run dist   # builds the Windows installer in dist\
+npm run dist:store  # builds the Microsoft Store package (dist\Bookmark-syncer-<version>-Store.appx) to upload in Partner Center
 node scripts/make-demo.js  # remakes docs/screenshot.png from a made-up library
 ```
 

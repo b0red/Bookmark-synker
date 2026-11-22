@@ -15,11 +15,11 @@ The renderer runs sandboxed with `contextIsolation: true` and `nodeIntegration: 
 |---|---|
 | `main.js` | Window creation and IPC handlers: import, list, update, remove, categorize, link check, export, settings, API key storage |
 | `preload.js` | Exposes `window.api` to the renderer |
-| `src/importers.js` | Finds browser profiles and parses Chromium `Bookmarks` JSON, Firefox `places.sqlite` (copied first, since Firefox locks it) and Netscape `bookmarks.html` |
+| `src/importers.js` | Finds browser profiles and parses Chromium `Bookmarks` JSON (Chrome, Edge, Brave, Vivaldi, Opera, Chromium, Comet), Firefox `places.sqlite` (Firefox, Zen, Floorp, Waterfox; copied first, since the browser locks it) and Netscape `bookmarks.html`. Only folders that exist are listed. `detectExportOnly()` reports installed browsers that can only be imported through an export (DuckDuckGo, whose bookmarks are encrypted) |
 | `src/normalize.js` | URL normalization used to merge duplicates |
 | `src/duplicates.js` | Near-duplicates: a looser URL key (`m.`/AMP/`youtu.be`/index pages, case) plus same path + title, grouped with union-find. Picks which bookmark to keep |
 | `src/autoimport.js` | Imports on start and when a browser's bookmark file changes (checks timestamps once a minute; Firefox at most every 10 minutes) |
-| `src/tray.js` | Tray icon, the global search shortcut (`globalShortcut`) and *Start with Windows* |
+| `src/tray.js` | Tray icon, the global search shortcut (`globalShortcut`) and *Start with Windows* (not in the Store version, where `process.windowsStore` is set and Windows' startup task is used instead) |
 | `src/safety.js` | Daily library backups (14 kept) and snapshots before a restore or import (10 kept), restoring a backup, opening a damaged library from the newest working backup, `crash.log`, atomic file writes |
 | `src/db.js` | The `Library` class, a SQLite database via sql.js, saved atomically to disk; `exportData` / `importData` for the whole-library JSON file |
 | `src/rules.js` | Offline categorizer: known domains, keywords, folder names |
@@ -38,8 +38,10 @@ The renderer runs sandboxed with `contextIsolation: true` and `nodeIntegration: 
 | `scripts/test-safety.js` | Daily backups and snapshots, pruning, restoring a backup, recovery from a damaged library, the crash log |
 | `scripts/test-library-file.js` | Whole-library JSON export and import: into an empty library, into one with its own values, again, and bad files |
 | `scripts/make-demo.js` | Builds a made-up library and saves `docs/screenshot.png` |
-| `scripts/make-icons.js` | Draws the extension icons and `build/icon.ico` (pure Node, no dependencies) |
-| `package.json` → `build` | electron-builder settings for the NSIS installer (`npm run dist`): per-user install, keeps the library on uninstall, `extension/` unpacked from `app.asar` so browsers can load it as a folder, English and Swedish Electron locales only |
+| `scripts/test-browsers.js` | Detection of Comet, Zen, Floorp, Waterfox and DuckDuckGo in a made-up AppData folder (copies of this PC's files), including that missing browsers aren't listed |
+| `scripts/make-icons.js` | Draws the icon (a house whose door is a bookmark ribbon) as the extension icons, `build/icon.ico` and the Store tiles in `build/appx/` (pure Node, no dependencies) |
+| `package.json` → `build` | electron-builder settings for the NSIS installer (`npm run dist`): per-user install, keeps the library on uninstall, `extension/` unpacked from `app.asar` so browsers can load it as a folder, English and Swedish Electron locales only. `build.appx` holds the Microsoft Store identity |
+| `scripts/dist-store.js`, `build/appxmanifest.xml` | The Microsoft Store package (`npm run dist:store`). The manifest turns off file and registry write virtualization (`unvirtualizedResources`) so the Store version shares `%APPDATA%\Bookmark syncer` and can write the browsers' files, and adds a Windows startup task for *Start with Windows*. The script runs `makeappx.exe` from a temp copy, because it fails to start from electron-builder's cache on some PCs |
 | `scripts/smoke.js` | Prints counts per browser profile |
 
 ## Database

@@ -17,6 +17,16 @@ npm run dist
 
 It writes `dist\Bookmark-syncer-Setup-<version>.exe`.
 
+### The Microsoft Store version
+
+Bookmark syncer is also submitted to the Microsoft Store, under the name *bookmarker*. It's the same app, with three differences:
+
+- Microsoft signs it, so there's no SmartScreen warning, and the Store installs updates by itself.
+- *Start with Windows* isn't a checkbox in the app. Turn it on in Windows Settings → Apps → Startup (or Task Manager → Startup apps). Started that way, the app opens its window instead of starting in the tray.
+- It uses the same library folder, `%APPDATA%\Bookmark syncer\`, so you can switch between the Store version and the installer. Don't run both at the same time.
+
+To build the Store package yourself: `npm run dist:store` (it writes `dist\Bookmark-syncer-<version>-Store.appx`). Only the Store can install it, because it isn't signed.
+
 ## Option B: run from the source code
 
 ## 1. Install Node.js
@@ -53,11 +63,15 @@ npm start
 
 ## 4. Import your bookmarks
 
-1. Click **Import**. The app lists every browser profile it found on this PC.
+1. Click **Import**. The app lists every browser profile it found on this PC: Chrome, Edge, Brave, Vivaldi, Opera, Chromium and Comet, and Firefox, Zen, Floorp and Waterfox. Only browsers you have installed are shown.
 2. Tick the ones you want and click **Import selected**.
 3. Have bookmarks from another PC or browser? Export them there as `bookmarks.html` and use **Import a bookmarks.html file…**
 
-If Firefox says the file is locked, close Firefox and try again.
+If Firefox (or Zen, Floorp, Waterfox) says the file is locked, close that browser and try again.
+
+**DuckDuckGo:** DuckDuckGo for Windows stores its bookmarks encrypted, and the app doesn't open them. When DuckDuckGo is installed, the Import dialog says so. Export your bookmarks to an HTML file in DuckDuckGo (from its bookmarks menu or settings), then use **Import a bookmarks.html file…**. *Sync to browsers* and the extension don't work with DuckDuckGo, so delete bookmarks there yourself.
+
+**Not found?** Browsers installed in an unusual place (a portable copy, a custom profile folder) aren't detected. Export a `bookmarks.html` from them instead.
 
 ## 5. Choose how to categorize
 
@@ -95,18 +109,22 @@ Deleting in the app only removes bookmarks from the library. To remove them from
 2. **Fully close** the browsers. Edge and Chrome often keep running in the system tray. Right-click their tray icon → *Close*, or turn off *Startup boost* / *Continue running background apps* in the browser's settings.
 3. Click **Sync to browsers**. It lists, per browser profile, which bookmarks would be removed. Tick the profiles and click **Delete from selected browsers**.
 
-A backup of each file is saved next to it, named `Bookmarks.bookmark-syncer-backup-<date>` (Chromium) or `places.sqlite.bookmark-syncer-backup-<date>` (Firefox). To undo, close the browser, open **Sync to browsers → Restore from backup…** and click **Restore** next to the backup you want. The file it replaces is backed up too, so you can switch back.
+*Sync to browsers* only **removes** bookmarks; it never adds any to a browser. To get bookmarks from the library into a browser, use **Export** and import the `bookmarks.html` file in that browser.
+
+A backup of each file is saved next to it, named `Bookmarks.bookmark-syncer-backup-<date>` (Chromium-based browsers) or `places.sqlite.bookmark-syncer-backup-<date>` (Firefox-based browsers). To undo, close the browser, open **Sync to browsers → Restore from backup…** and click **Restore** next to the backup you want. The file it replaces is backed up too, so you can switch back.
 
 **About browser sync accounts**
 
-- **Firefox Sync**: deletions are recorded the way Firefox itself does it, so they should reach your other devices.
-- **Chrome / Edge / Brave / Vivaldi / Opera with sync turned on**: these browsers don't expect their file to change while they're closed, and the sync server puts the bookmarks back. Use the **browser extension** (next section) for these. The Sync dialog marks such profiles and leaves them unticked.
+- **Firefox Sync** (also in Zen, Floorp and Waterfox): deletions are recorded the way Firefox itself does it, so they should reach your other devices.
+- **Chrome / Edge / Brave / Vivaldi / Opera / Comet with sync turned on**: these browsers don't expect their file to change while they're closed, and the sync server puts the bookmarks back. Use the **browser extension** (next section) for these. The Sync dialog marks such profiles and leaves them unticked.
 
 ## 7. The browser extension
 
 The **Bookmark syncer helper** extension deletes bookmarks through the browser itself, so the browser's own sync removes them on all your devices. It works while the browser is open, so you don't need to close anything. It isn't published in any extension store; you load it from your own copy.
 
 In the app, click **Sync to browsers → Set up the browser extension…** and keep that window open. It has the folders and the pairing code.
+
+It's tested in Chrome, Edge, Brave, Vivaldi, Opera and Firefox. Comet (Chromium-based) and Zen, Floorp and Waterfox (Firefox-based) should work the same way, but haven't been tested. DuckDuckGo for Windows doesn't support extensions.
 
 ### Chrome, Edge, Brave, Vivaldi, Opera
 
@@ -194,7 +212,9 @@ Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> in any program to bring up the
 | Electron exits with `FATAL` right away | Move the project to a folder in your user profile and run `npm start` there. |
 | Firefox: "File is locked" | Close Firefox and import again. |
 | Sync: "… is running" although the window is closed | The browser is still running in the background. Close it from the system tray, or end it in Task Manager. |
-| Sync: "Firefox did not shut down cleanly" | Open Firefox, close it normally, then try again. |
+| Sync: "… did not shut down cleanly" (Firefox, Zen, Floorp, Waterfox) | Open that browser, close it normally, then try again. |
+| A browser I use isn't in the Import list | It's not installed in the usual place, or it's DuckDuckGo (see [4. Import your bookmarks](#4-import-your-bookmarks)). Export a `bookmarks.html` from it and import that. |
+| Store version: *Start with Windows* is missing in Settings | That's expected. Turn it on in Windows Settings → Apps → Startup. |
 | Bookmarks came back after syncing (Chrome/Edge) | Browser sync restores file edits. Use the browser extension (section 7). |
 | Extension: "Bookmark syncer isn't running" | Open the app, then click **Try again**. If the app's extension window says the port is in use, the app is probably open twice. |
 | The shortcut does nothing | Another program has the same keys. ⚙ Settings shows this; pick other keys. |
@@ -204,7 +224,9 @@ Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> in any program to bring up the
 
 ## Updating
 
-**Installed app:** run the new installer; it replaces the old version and keeps your library. Then reload the browser extension (see below).
+**Installed app:** run the new installer; it replaces the old version and keeps your library. Then reload the browser extension (see below). The app doesn't check for updates by itself; new versions are on the [Releases page](https://github.com/b0red/Bookmark-synker/releases).
+
+**Microsoft Store version:** the Store updates it. Reload the browser extension afterwards if the extension changed.
 
 **From the source code:**
 
@@ -220,5 +242,5 @@ Your library is kept in `%APPDATA%\Bookmark syncer\` and isn't touched by update
 
 If you turned on *Start with Windows*, turn it off in ⚙ Settings first, then quit the app (tray icon → Quit).
 
-- **Installed app:** Windows Settings → Apps → *Bookmark syncer* → Uninstall. Your library stays in `%APPDATA%\Bookmark syncer\`; delete that folder too to remove everything.
+- **Installed app:** Windows Settings → Apps → *Bookmark syncer* (or *bookmarker* for the Store version) → Uninstall. Your library stays in `%APPDATA%\Bookmark syncer\`; delete that folder too to remove everything.
 - **From the source code:** delete the project folder and `%APPDATA%\Bookmark syncer\`.

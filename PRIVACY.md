@@ -1,7 +1,7 @@
 # Privacy policy
 
 **Bookmark syncer** (the Windows app and its *Bookmark syncer helper* browser extension)
-Effective date: 21 November 2026 (updated for version 1.2.0: automatic link checks and the extension's open-page view)
+Effective date: 22 November 2026 (updated for version 1.2.1: more browsers, DuckDuckGo and the Microsoft Store version)
 
 ## In short
 
@@ -13,7 +13,8 @@ Effective date: 21 November 2026 (updated for version 1.2.0: automatic link chec
 ## What the app reads on your PC
 
 - **Your browsers' bookmark files**:
-  - Supported browsers are Chrome, Edge, Brave, Vivaldi, Opera and Firefox.
+  - Supported browsers are Chrome, Edge, Brave, Vivaldi, Opera, Chromium and Comet, and Firefox, Zen, Floorp and Waterfox.
+  - The app only checks whether DuckDuckGo is installed (its app folder exists). It does not open DuckDuckGo's data: DuckDuckGo stores bookmarks encrypted, with the same key that protects its saved passwords. DuckDuckGo bookmarks only reach the app if you export them to a file yourself and import that file.
   - The app reads only from browser profiles you choose to import.
   - It reads each bookmark's title, address (URL), folder and date added. Where the browser records them, it also reads when the bookmark was last used and, for Firefox, how often a bookmarked page was visited.
   - It does not read the rest of your browsing history, your passwords, cookies or form data.
@@ -48,7 +49,7 @@ These features never connect to the internet:
 
 - **Auto-categorize with built-in rules**, the default. It works offline.
 - **Auto-categorize with local AI (Ollama)**. It talks only to Ollama running on your own PC (`127.0.0.1`).
-- **Updates**. The app does not check for updates by itself.
+- **Updates**. The app does not check for updates by itself. If you install it from the Microsoft Store, the Store updates it, and [Microsoft's privacy statement](https://privacy.microsoft.com/privacystatement) covers the Store itself (downloads, purchases, updates). The app sends Microsoft nothing of its own.
 
 ## The browser extension
 

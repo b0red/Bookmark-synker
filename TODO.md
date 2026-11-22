@@ -29,13 +29,16 @@ Ranked by how much each helps the main job (one clean library that stays in step
 - Some error messages from the browsers, Ollama or the Claude API that include their own details are shown in English in the Swedish app.
 - The full guide (README, INSTALL) and the privacy policy are in English only.
 - No automatic updates: run the new installer to update. (The Microsoft Store version is updated by the Store.)
+- Microsoft Store version (*bookmarker*, submitted 22 Nov 2026, in review): *Start with Windows* is set in Windows Settings → Apps → Startup, and then the app opens with its window shown instead of in the tray. Each new version needs `npm run dist:store` and a new submission in Partner Center.
 
 - Sorting into folders (extension) moves bookmarks out of their old folders but leaves those folders in place, even when they end up empty. Undo puts everything back.
 - The global shortcut is unavailable while another program uses the same keys; Settings says so, and you can pick other keys.
 
 - Favicons are fetched from each site directly, so some fail or trigger harmless SSL warnings in the terminal.
 - Ollama on older NVIDIA cards (e.g. GTX 900 series) crashes on the GPU. The app switches to the CPU (slow) and remembers it; see ⚙ Settings.
-- Safari and Chromium-based browsers in unusual install locations aren't auto-detected. Use the `bookmarks.html` import.
+- Browsers in unusual places (portable copies, custom profile folders) aren't auto-detected. Use the `bookmarks.html` import.
+- Comet, Zen, Floorp and Waterfox are found in their usual folders. They've been tested on made-up copies only (none installed on the test PC), and the extension hasn't been tried in them.
+- The in-app help and the extension setup window still name only the main browsers (Chrome, Edge, Brave, Vivaldi, Opera, Firefox), so that browsers you don't have aren't mentioned.
 - DuckDuckGo for Windows keeps its bookmarks in an encrypted database (the same key protects its saved passwords), so the app doesn't read it. When DuckDuckGo is installed, the Import dialog says to export the bookmarks to an HTML file and use the `bookmarks.html` import. Sync to browsers and the extension don't work with DuckDuckGo.
 - Only tested on Windows 10.
 - Sync to browsers (file-based): with Chrome or Edge sync turned on, the sync server restores deleted bookmarks. Use the browser extension for those profiles.
