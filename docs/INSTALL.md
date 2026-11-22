@@ -1,5 +1,7 @@
 # Installing and setting up Bookmark syncer
 
+[Svenska](INSTALL.sv.md)
+
 ## Option A: the installer (easiest)
 
 1. Get `Bookmark-syncer-Setup-<version>.exe` (from the project's Releases page, or build it yourself, see below).
@@ -21,8 +23,8 @@ It writes `dist\Bookmark-syncer-Setup-<version>.exe`.
 
 Bookmark syncer is also submitted to the Microsoft Store, under the name *bookmarker*. It's the same app, with three differences:
 
-- Microsoft signs it, so there's no SmartScreen warning, and the Store installs updates by itself.
-- *Start with Windows* isn't a checkbox in the app. Turn it on in Windows Settings → Apps → Startup (or Task Manager → Startup apps). Started that way, the app opens its window instead of starting in the tray.
+- Microsoft signs it, so there's no SmartScreen warning, and the Store installs updates by itself. (So there's no *Updates* section in its Settings.)
+- *Start with Windows* isn't a checkbox in the app. Turn it on in Windows Settings → Apps → Startup (or Task Manager → Startup apps). Started that way, the app starts in the tray. (Windows can't tell the app it was started at login, so it goes by the time since Windows started: within the first 3 minutes it starts in the tray, later it opens its window.)
 - It uses the same library folder, `%APPDATA%\Bookmark syncer\`, so you can switch between the Store version and the installer. Don't run both at the same time.
 
 To build the Store package yourself: `npm run dist:store` (it writes `dist\Bookmark-syncer-<version>-Store.appx`). Only the Store can install it, because it isn't signed.
@@ -69,7 +71,13 @@ npm start
 
 If Firefox (or Zen, Floorp, Waterfox) says the file is locked, close that browser and try again.
 
-**DuckDuckGo:** DuckDuckGo for Windows stores its bookmarks encrypted, and the app doesn't open them. When DuckDuckGo is installed, the Import dialog says so. Export your bookmarks to an HTML file in DuckDuckGo (from its bookmarks menu or settings), then use **Import a bookmarks.html file…**. *Sync to browsers* and the extension don't work with DuckDuckGo, so delete bookmarks there yourself.
+**DuckDuckGo** stores its bookmarks encrypted (with the same key as its saved passwords), and the app doesn't open them. Import them from an export instead:
+
+1. In DuckDuckGo, export your bookmarks to an HTML file (open **Manage bookmarks**, then **Export bookmarks**) and save it in your **Downloads** folder.
+2. In Bookmark syncer, click **Import**. With DuckDuckGo installed, the dialog has a DuckDuckGo box. Click **Find the export**. The app looks in Downloads for the newest bookmark export from the last 7 days and shows its name and when it was saved. (Nothing found? Check that the file is in Downloads and less than a week old, or use **Import a bookmarks.html file…** to pick it anywhere.)
+3. Click **Import it**. The bookmarks are added with the source *DuckDuckGo · export*; duplicates are merged.
+
+Repeat it whenever you want DuckDuckGo's newest bookmarks; only new ones are added. The app only reads files that really are bookmark exports (it checks the first lines), and only in Downloads. It isn't automatic, and *Sync to browsers* and the extension don't work with DuckDuckGo, so delete bookmarks there yourself.
 
 **Not found?** Browsers installed in an unusual place (a portable copy, a custom profile folder) aren't detected. Export a `bookmarks.html` from them instead.
 
@@ -177,6 +185,8 @@ Click the extension's icon on any web page. The top of the popup shows whether t
 3. Click **Sort them**. They move to *Other bookmarks* (*Other favorites* in Edge) **→ Bookmark syncer → category → sub-category**. Your browser sync moves them on your other devices too.
 4. **Undo sorting** moves each one back to its old folder and position, and removes the folders it made (if they're empty).
 
+**Remove folders that end up empty** (a checkbox under the button, on by default, remembered) also removes the old folders that are left with nothing in them after sorting, and their parents if those end up empty too. The browser's own folders (*Bookmarks bar*, *Other bookmarks*, …) are never removed, and neither is a folder with anything left in it. Undo recreates the removed folders in their old places and moves the bookmarks back into them.
+
 Bookmarks are only moved, never deleted. Run it again after categorizing more; bookmarks already in the right folder are left alone.
 
 **How it stays private and safe**
@@ -190,7 +200,20 @@ Bookmarks are only moved, never deleted. Run it again after categorizing more; b
 
 **Updating the extension**: after `git pull`, open the extensions page and click the reload icon on *Bookmark syncer helper*. In Firefox, open the app's setup window (to rebuild the Firefox version), then click **Reload** in `about:debugging`, or sign and install the new version.
 
-## 8. Search from anywhere and the tray
+## 8. A start page for the browser
+
+⚙ Settings → *Start page* → tick **Keep a start page with my bookmarks by category, for the browser**. The app writes `start.html` in its data folder: your Favorites, Read later and every category as cards (most visited first; long ones fold up behind *Show all*), with a search box at the top. <kbd>Enter</kbd> opens the first hit, <kbd>/</kbd> jumps to the search box. It follows Windows' light or dark mode and the app's language.
+
+The app rewrites it a few seconds after your library changes, and when it starts. Dead links are left out. The page is a file on your PC and loads nothing from the web (not even site icons).
+
+To see it when the browser starts, click **Copy its address** and paste it into the browser:
+
+- **Chrome, Edge, Brave, Vivaldi, Opera:** Settings → *On startup* → *Open a specific page or set of pages* → add the address. Turning on the Home button and setting it to the same address also works.
+- **Firefox, Zen, Floorp, Waterfox:** Settings → *Home* → *Homepage and new windows* → *Custom URLs…* → paste the address.
+
+Browsers don't let a file be the *new tab* page without an extension, so it's the start and home page only. Unticking the setting stops the updates; the file stays until you delete it.
+
+## 9. Search from anywhere and the tray
 
 Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> in any program to bring up the app with the search box ready. Type, then <kbd>Enter</kbd> opens the top result.
 
@@ -215,6 +238,9 @@ Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> in any program to bring up the
 | Sync: "… did not shut down cleanly" (Firefox, Zen, Floorp, Waterfox) | Open that browser, close it normally, then try again. |
 | A browser I use isn't in the Import list | It's not installed in the usual place, or it's DuckDuckGo (see [4. Import your bookmarks](#4-import-your-bookmarks)). Export a `bookmarks.html` from it and import that. |
 | Store version: *Start with Windows* is missing in Settings | That's expected. Turn it on in Windows Settings → Apps → Startup. |
+| Store version opens its window at login instead of the tray | Windows took more than 3 minutes to start the app (a slow login). Close the window; the app keeps running in the tray. |
+| DuckDuckGo: *No bookmark export from the last 7 days in your Downloads folder* | The export must be in your Downloads folder and less than 7 days old. Or use **Import a bookmarks.html file…** and pick it. |
+| The start page is old | It's rewritten when the library changes and when the app starts, so it can't update while the app is closed. Check that ⚙ Settings → *Start page* is ticked. |
 | Bookmarks came back after syncing (Chrome/Edge) | Browser sync restores file edits. Use the browser extension (section 7). |
 | Extension: "Bookmark syncer isn't running" | Open the app, then click **Try again**. If the app's extension window says the port is in use, the app is probably open twice. |
 | The shortcut does nothing | Another program has the same keys. ⚙ Settings shows this; pick other keys. |
@@ -224,7 +250,9 @@ Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>B</kbd> in any program to bring up the
 
 ## Updating
 
-**Installed app:** run the new installer; it replaces the old version and keeps your library. Then reload the browser extension (see below). The app doesn't check for updates by itself; new versions are on the [Releases page](https://github.com/b0red/Bookmark-synker/releases).
+**Installed app:** run the new installer; it replaces the old version and keeps your library. Then reload the browser extension (see below).
+
+The app tells you when there's a new version: once a day it asks GitHub for the newest release, and if it's newer than yours, it shows a notice with a **Download** link (also as a tray message), once per version. It never downloads or installs anything by itself. ⚙ Settings → *Updates* turns this off, and **Check now** asks right away. New versions are always on the [Releases page](https://github.com/b0red/Bookmark-synker/releases).
 
 **Microsoft Store version:** the Store updates it. Reload the browser extension afterwards if the extension changed.
 

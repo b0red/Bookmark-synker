@@ -56,6 +56,22 @@ const { detectSources, parseChromium, parseFirefox } = require('../src/importers
     assert.deepStrictEqual(detectExportOnly(), [], 'no DuckDuckGo hint when it is not installed');
     fs.mkdirSync(path.join(LOCAL, 'Packages', 'DuckDuckGo.DesktopBrowser_ya2fgkz3nks94'), { recursive: true });
     assert.deepStrictEqual(detectExportOnly(), [{ browser: 'DuckDuckGo' }], 'DuckDuckGo hint when it is installed');
+    // Finding a bookmark export in Downloads: only Netscape bookmark files, newest first, recent only.
+    const { findBookmarkExports } = require('../src/importers');
+    const dl = path.join(root, 'Downloads');
+    fs.mkdirSync(dl);
+    const exportHtml = '<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<DL><p><DT><A HREF="https://example.org/">Example</A></DL>';
+    fs.writeFileSync(path.join(dl, 'older.html'), exportHtml);
+    fs.writeFileSync(path.join(dl, 'newer.htm'), exportHtml);
+    fs.writeFileSync(path.join(dl, 'page.html'), '<!DOCTYPE html><html><body>not bookmarks</body></html>');
+    fs.writeFileSync(path.join(dl, 'stale.html'), exportHtml);
+    fs.writeFileSync(path.join(dl, 'notes.txt'), exportHtml);
+    const now = Date.now() / 1000;
+    fs.utimesSync(path.join(dl, 'older.html'), now - 3600, now - 3600);
+    fs.utimesSync(path.join(dl, 'stale.html'), now - 30 * 86400, now - 30 * 86400);
+    const exportsFound = findBookmarkExports(dl).map(f => path.basename(f.path || f));
+    assert.deepStrictEqual(exportsFound, ['newer.htm', 'older.html'], 'bookmark exports found, newest first');
+    assert.deepStrictEqual(findBookmarkExports(path.join(root, 'missing')), [], 'a missing Downloads folder is fine');
     if (!realPlaces) console.log('  (no Firefox profile on this PC to copy: Zen and Floorp skipped)');
     console.log('extra browsers: ok');
   } finally {

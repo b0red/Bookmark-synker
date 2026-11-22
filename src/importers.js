@@ -87,6 +87,32 @@ function detectExportOnly() {
   return found;
 }
 
+// Bookmark exports (Netscape bookmarks.html format) saved in a folder in the last few days, newest first.
+// Used to pick up a DuckDuckGo export from the Downloads folder without a file dialog. Only the top of each file is read.
+function findBookmarkExports(dir, maxAgeDays = 7) {
+  const since = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+  const out = [];
+  let names = [];
+  try { names = fs.readdirSync(dir); } catch { return out; }
+  for (const name of names) {
+    if (!/\.html?$/i.test(name)) continue;
+    const file = path.join(dir, name);
+    let st;
+    try { st = fs.statSync(file); } catch { continue; }
+    if (!st.isFile() || st.mtimeMs < since || st.size > 50 * 1024 * 1024) continue;
+    let head = '';
+    try {
+      const fd = fs.openSync(file, 'r');
+      const buf = Buffer.alloc(2048);
+      const n = fs.readSync(fd, buf, 0, buf.length, 0);
+      fs.closeSync(fd);
+      head = buf.slice(0, n).toString('utf8');
+    } catch { continue; }
+    if (/NETSCAPE-Bookmark-file-1/i.test(head)) out.push({ path: file, name, mtime: st.mtimeMs });
+  }
+  return out.sort((a, b) => b.mtime - a.mtime);
+}
+
 // ---------- Chromium (Chrome, Edge, Brave, ...) ----------
 
 // Chromium stores microseconds since 1601-01-01.
@@ -255,4 +281,4 @@ function parseHtml(text) {
   return out;
 }
 
-module.exports = { detectExportOnly, detectSources, parseChromium, parseFirefox, parseHtml };
+module.exports = { detectExportOnly, findBookmarkExports, detectSources, parseChromium, parseFirefox, parseHtml };

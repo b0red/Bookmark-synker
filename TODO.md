@@ -27,19 +27,19 @@ Ranked by how much each helps the main job (one clean library that stays in step
 
 - The installer isn't code-signed, so Windows SmartScreen asks for confirmation (*More info → Run anyway*). A signing certificate costs money.
 - Some error messages from the browsers, Ollama or the Claude API that include their own details are shown in English in the Swedish app.
-- The full guide (README, INSTALL) and the privacy policy are in English only.
-- No automatic updates: run the new installer to update. (The Microsoft Store version is updated by the Store.)
-- Microsoft Store version (*bookmarker*, submitted 22 Nov 2026, in review): *Start with Windows* is set in Windows Settings → Apps → Startup, and then the app opens with its window shown instead of in the tray. Each new version needs `npm run dist:store` and a new submission in Partner Center.
+- The privacy policy, ARCHITECTURE, TODO and CHANGELOG are in English only (README and INSTALL are also in Swedish).
+- No automatic updates: the app tells you about a new version, and you run the new installer. (The Microsoft Store version is updated by the Store.)
+- Microsoft Store version (*bookmarker*, submitted 22 Nov 2026, in review): *Start with Windows* is set in Windows Settings → Apps → Startup. Windows can't pass the app a "started at login" flag, so it starts in the tray when Windows started less than 3 minutes ago; after a very slow login it opens its window instead. Not testable on the build PC (an unsigned package can't be installed). Each new version needs `npm run dist:store` and a new submission in Partner Center.
 
-- Sorting into folders (extension) moves bookmarks out of their old folders but leaves those folders in place, even when they end up empty. Undo puts everything back.
 - The global shortcut is unavailable while another program uses the same keys; Settings says so, and you can pick other keys.
 
 - Favicons are fetched from each site directly, so some fail or trigger harmless SSL warnings in the terminal.
 - Ollama on older NVIDIA cards (e.g. GTX 900 series) crashes on the GPU. The app switches to the CPU (slow) and remembers it; see ⚙ Settings.
 - Browsers in unusual places (portable copies, custom profile folders) aren't auto-detected. Use the `bookmarks.html` import.
-- Comet, Zen, Floorp and Waterfox are found in their usual folders. They've been tested on made-up copies only (none installed on the test PC), and the extension hasn't been tried in them.
+- Comet, Zen and Floorp are found in their usual folders but have been tested on made-up copies only. Waterfox is tested on a real installation (import, Sync to browsers on a copy, the extension's logic on its bookmarks), but the extension itself hasn't been loaded in it.
 - The in-app help and the extension setup window still name only the main browsers (Chrome, Edge, Brave, Vivaldi, Opera, Firefox), so that browsers you don't have aren't mentioned.
-- DuckDuckGo for Windows keeps its bookmarks in an encrypted database (the same key protects its saved passwords), so the app doesn't read it. When DuckDuckGo is installed, the Import dialog says to export the bookmarks to an HTML file and use the `bookmarks.html` import. Sync to browsers and the extension don't work with DuckDuckGo.
+- DuckDuckGo for Windows keeps its bookmarks in an encrypted database (the same key protects its saved passwords), so the app doesn't read it. You export them from DuckDuckGo to Downloads, and the Import dialog finds and imports the export. It isn't automatic, and Sync to browsers and the extension don't work with DuckDuckGo.
+- The start page is a home/start page, not the new tab page (browsers only let extensions replace that). It only updates while the app runs.
 - Only tested on Windows 10.
 - Sync to browsers (file-based): with Chrome or Edge sync turned on, the sync server restores deleted bookmarks. Use the browser extension for those profiles.
 - Sync to browsers and the extension delete by URL, so a URL saved in several folders of the same browser is removed from all of them.

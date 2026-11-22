@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const FILES = ['renderer/app.js', 'main.js', 'src/tray.js', 'extension/popup.js'];
+const FILES = ['renderer/app.js', 'main.js', 'src/tray.js', 'src/startpage.js', 'extension/popup.js'];
 // Literals inside t(...) that are compared values, not text.
 const NOT_TEXT = new Set(['category', 'before-import', 'folder', 'bookmark']);
 const LIT = /'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\$]|\\.)*`/g;

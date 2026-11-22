@@ -42,7 +42,7 @@ function report(htmlKeys) {
   const SV_POPUP = Function(popupSrc.slice(0, popupSrc.indexOf('(function')) + '; return SV_POPUP;')();
   const byFile = keysByFile(root);
   const groups = [
-    ['code (app, main, tray)', SV, [...byFile['renderer/app.js'], ...byFile['main.js'], ...byFile['src/tray.js']]],
+    ['code (app, main, tray, start page)', SV, [...byFile['renderer/app.js'], ...byFile['main.js'], ...byFile['src/tray.js'], ...byFile['src/startpage.js']]],
     ['renderer/index.html', SV, htmlKeys.app],
     ['extension popup code', SV_POPUP, [...byFile['extension/popup.js']]],
     ['extension/popup.html', SV_POPUP, htmlKeys.popup],

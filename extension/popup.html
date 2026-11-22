@@ -73,12 +73,15 @@
   <section id="v-organize" class="hidden">
     <p id="org-summary"></p>
     <ul id="org-list" class="list"></ul>
+    <div class="row hidden" id="org-empty-row">
+      <label class="small"><input type="checkbox" id="org-empty" checked> Remove folders that end up empty</label>
+    </div>
     <div class="row">
       <button id="org-go" class="primary">Sort them</button>
       <button id="org-undo" class="hidden">Undo sorting</button>
       <button id="org-back">Back</button>
     </div>
-    <p class="muted small">Bookmarks are only moved, never deleted, into a <i>Bookmark syncer</i> folder under Other bookmarks, one folder per category. Your browser sync moves them on your other devices too.</p>
+    <p class="muted small">Bookmarks are only moved, never deleted, into a <i>Bookmark syncer</i> folder under Other bookmarks, one folder per category. Folders they leave empty can be removed. Undo puts everything back, folders too. Your browser sync moves them on your other devices too.</p>
   </section>
 
   <footer>

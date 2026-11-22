@@ -294,7 +294,22 @@
     <p id="hotkey-status" class="muted small"></p>
     <label class="check"><input type="checkbox" id="set-tray"> Closing the window keeps the app running in the tray</label>
     <label class="check" id="login-row"><input type="checkbox" id="set-login"> Start with Windows (in the tray)</label>
-    <p id="login-store" class="muted small" hidden>To start the app with Windows, turn it on in Windows Settings → Apps → Startup.</p>
+    <p id="login-store" class="muted small" hidden>To start the app with Windows (in the tray), turn it on in Windows Settings → Apps → Startup.</p>
+
+    <label>Updates</label>
+    <div id="update-row">
+      <label class="check"><input type="checkbox" id="set-update"> Tell me when a new version is out (asks GitHub once a day)</label>
+      <div class="row"><button id="update-now">Check now</button><span id="update-status" class="muted small"></span></div>
+    </div>
+    <p id="update-store" class="muted small" hidden>The Microsoft Store keeps the app up to date.</p>
+
+    <label>Start page</label>
+    <label class="check"><input type="checkbox" id="set-startpage"> Keep a start page with my bookmarks by category, for the browser</label>
+    <div id="startpage-more" hidden>
+      <p class="muted small">Favorites, Read later and every category on one page, with a search box. It updates itself when your library changes. Dead links are left out. It's a file on this PC and contacts no one.</p>
+      <div class="row"><button id="startpage-open" class="tiny">Open it</button><button id="startpage-copy" class="tiny">Copy its address</button><span id="startpage-status" class="muted small"></span></div>
+      <p class="muted small">To see it every time the browser starts, paste the address in the browser's settings: <b>Chrome, Edge, Brave, Vivaldi, Opera</b>: <i>On startup</i> → <i>Open a specific page</i>. <b>Firefox</b>: <i>Home</i> → <i>Homepage and new windows</i> → <i>Custom URLs</i>.</p>
+    </div>
 
     <label>Library backups</label>
     <p id="backups-status" class="muted small"></p>

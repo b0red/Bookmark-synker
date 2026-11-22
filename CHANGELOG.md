@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **Start page**: ⚙ Settings → *Start page* keeps a page with your Favorites, Read later and every category, with a search box, to use as the browser's home page. The app updates it when the library changes. It's a file on your PC (`start.html`) and loads nothing from the web. Off by default
+- **New version notice**: once a day the app asks GitHub whether there's a newer release and tells you, in the window and the tray, once per version. It never downloads anything by itself. ⚙ Settings → *Updates* turns it off or checks now. Not in the Microsoft Store version
+- **DuckDuckGo in one click**: export your bookmarks from DuckDuckGo to Downloads, then **Find the export** and **Import it** in the Import dialog
+- **Extension: remove empty folders**: sorting into category folders can now also remove the old folders that end up empty (on by default). Undo recreates them in their old places
+- **Microsoft Store version**: when Windows starts it at login, it now starts in the tray
+- **Swedish guide**: [README.sv.md](README.sv.md) and [docs/INSTALL.sv.md](docs/INSTALL.sv.md)
+- Waterfox tested on a real installation (import, Sync to browsers on a copy, the extension's logic)
+
 ## 1.2.1 (2026-11-22)
 
 - **More browsers**: Comet (Perplexity), Zen, Floorp and Waterfox are found by Import, Import automatically and Sync to browsers. Only browsers that are installed are listed

@@ -454,7 +454,14 @@ async function openImport() {
     : `<p class="muted">${t('No browser profiles found. Use “Import a bookmarks.html file…” instead.')}</p>`;
   // Installed browsers the app can't read directly (only shown when they're installed).
   const exportOnly = await window.api.detectExportOnly();
-  $('#import-sources').innerHTML += exportOnly.map(b => `<p class="muted small">${t('{browser} is installed, but it keeps its bookmarks encrypted, so they cannot be read directly. In {browser}, export your bookmarks to an HTML file, then use “Import a bookmarks.html file…”.', { browser: esc(b.browser) })}</p>`).join('');
+  $('#import-sources').innerHTML += exportOnly.map(b => `<div class="export-only" data-browser="${esc(b.browser)}">
+      <p class="small">${t('{browser} keeps its bookmarks encrypted, so they cannot be read directly. Import them in two steps:', { browser: `<b>${esc(b.browser)}</b>` })}</p>
+      <ol class="small">
+        <li>${t('In {browser}, export your bookmarks to an HTML file and save it in your Downloads folder.', { browser: esc(b.browser) })}</li>
+        <li>${t('Click <b>Find the export</b>. The app picks the newest bookmark export from the last 7 days.')}</li>
+      </ol>
+      <div class="row"><button class="export-find">${t('Find the export')}</button><span class="export-status small"></span></div>
+    </div>`).join('');
   dlg.sources = sources;
   dlg.showModal();
 }
@@ -485,6 +492,29 @@ $('#import-html').onclick = async () => {
   const results = await window.api.importHtml();
   if (results.length) { showImportResults(results); await reload(); }
 };
+// DuckDuckGo (and other browsers that can only export): find the newest export in Downloads, show it, import on a second click.
+$('#import-sources').addEventListener('click', async (e) => {
+  const box = e.target.closest('.export-only');
+  if (!box) return;
+  const status = box.querySelector('.export-status');
+  const browser = box.dataset.browser;
+  if (e.target.closest('.export-find')) {
+    const found = await window.api.findExport();
+    if (!found) {
+      status.innerHTML = `<span class="warn-text">${t('No bookmark export from the last 7 days in your Downloads folder. Export from {browser} first, or use “Import a bookmarks.html file…”.', { browser: esc(browser) })}</span>`;
+      return;
+    }
+    status.innerHTML = t('Found <b>{name}</b>, saved {when}.', { name: esc(found.name), when: esc(fmtDateTime(found.mtime)) }) + ` <button class="export-import primary">${t('Import it')}</button>`;
+    status.querySelector('.export-import').dataset.file = found.path;
+  } else if (e.target.closest('.export-import')) {
+    const btn = e.target.closest('.export-import');
+    btn.disabled = true;
+    const results = await window.api.importExportFile(btn.dataset.file, browser);
+    status.textContent = '';
+    showImportResults(results);
+    await reload();
+  }
+});
 $('#import-close').onclick = () => $('#dlg-import').close();
 // "show them" jumps to the source view for that import.
 $('#import-result').addEventListener('click', (e) => {
@@ -658,6 +688,13 @@ async function openSettings() {
   $('#set-login').checked = !!s.startWithWindows;
   $('#login-row').hidden = !!s.storeApp; // the Store version uses a Windows startup task instead
   $('#login-store').hidden = !s.storeApp;
+  $('#set-update').checked = s.updateCheck !== false;
+  $('#update-row').hidden = !!s.storeApp;
+  $('#update-store').hidden = !s.storeApp;
+  $('#update-status').textContent = '';
+  $('#set-startpage').checked = !!s.startPage;
+  $('#startpage-more').hidden = !s.startPage;
+  $('#startpage-status').textContent = '';
   showHotkeyStatus(s.hotkeyStatus);
   showCategorizerOptions(s.categorizer);
   $('#dlg-settings').showModal();
@@ -716,7 +753,26 @@ $('#set-hotkey').addEventListener('keydown', async (e) => {
 });
 $('#set-hotkey-on').addEventListener('change', async (e) => showHotkeyStatus((await window.api.saveSettings({ hotkeyEnabled: e.target.checked })).hotkeyStatus));
 $('#set-tray').addEventListener('change', (e) => window.api.saveSettings({ closeToTray: e.target.checked }));
+$('#set-update').addEventListener('change', (e) => window.api.saveSettings({ updateCheck: e.target.checked }));
+$('#update-now').onclick = async () => {
+  $('#update-status').textContent = t('Checking…');
+  const r = await window.api.checkForUpdates();
+  if (!r || r.error) { $('#update-status').textContent = t("Couldn't reach GitHub. Try again later."); return; }
+  if (!r.available) { $('#update-status').textContent = t('You have the newest version ({version}).', { version: r.current }); return; }
+  $('#update-status').innerHTML = esc(t('Version {version} is out.', { version: r.latest })) + ' <a href="#" id="update-get">' + esc(t('Download')) + '</a>';
+  $('#update-get').onclick = (e) => { e.preventDefault(); window.api.openRelease(r.url); };
+};
+window.api.onUpdate((r) => toast(t('Version {version} is out.', { version: r.latest }), 15000, { label: t('Download'), fn: () => window.api.openRelease(r.url) }));
 $('#set-login').addEventListener('change', (e) => window.api.saveSettings({ startWithWindows: e.target.checked }));
+$('#set-startpage').addEventListener('change', async (e) => {
+  await window.api.saveSettings({ startPage: e.target.checked });
+  $('#startpage-more').hidden = !e.target.checked;
+});
+$('#startpage-open').onclick = () => window.api.openStartPage();
+$('#startpage-copy').onclick = async () => {
+  await window.api.copyText((await window.api.startPageInfo()).url);
+  $('#startpage-status').textContent = t('Copied.');
+};
 
 window.api.onFocusSearch(() => {
   for (const d of document.querySelectorAll('dialog[open]')) d.close();

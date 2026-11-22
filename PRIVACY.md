@@ -1,7 +1,7 @@
 # Privacy policy
 
 **Bookmark syncer** (the Windows app and its *Bookmark syncer helper* browser extension)
-Effective date: 22 November 2026 (updated for version 1.2.1: more browsers, DuckDuckGo and the Microsoft Store version)
+Effective date: 22 November 2026 (updated for the next version: the new-version check, the start page and the DuckDuckGo export import)
 
 ## In short
 
@@ -19,6 +19,7 @@ Effective date: 22 November 2026 (updated for version 1.2.1: more browsers, Duck
   - It reads each bookmark's title, address (URL), folder and date added. Where the browser records them, it also reads when the bookmark was last used and, for Firefox, how often a bookmarked page was visited.
   - It does not read the rest of your browsing history, your passwords, cookies or form data.
 - **Bookmark files you pick yourself**, such as an exported `bookmarks.html` or a library file you import.
+- **Your Downloads folder, only when you click *Find the export*** in the Import dialog (shown when DuckDuckGo is installed). The app lists the `.html` files saved there in the last 7 days and reads the first lines of each to see whether it's a bookmark export. It reads a whole file only when you click *Import it*.
 
 ## What the app stores, and where
 
@@ -27,6 +28,7 @@ All of it is in your Windows user folder: `%APPDATA%\Bookmark syncer`. It contai
 - `library.sqlite`: your library. This means the bookmarks above plus your categories, tags, notes, favorites, Read later list and the list of bookmarks you deleted.
 - `settings.json`: your settings. These include the pairing code for the browser extension.
 - `backups\`: copies of the library from the last 14 days, plus copies made right before a restore or an import.
+- `start.html`: only if you turn on the start page. It's a page with your bookmarks for your browser to open, and it loads nothing from the internet.
 - `crash.log`: technical error messages, if something goes wrong. It stays on your PC and is never sent anywhere.
 - `anthropic-key.bin`: present only if you save an Anthropic API key. It is encrypted with Windows' own per-user protection.
 
@@ -43,13 +45,15 @@ Uninstalling the app keeps this folder, so your library survives a reinstall. To
 | **Site icons** in the bookmark list | Each bookmarked website, to load its icon (`/favicon.ico`) | A normal web request, so that site sees your IP address, as if you visited it |
 | **Check links** (when you click it, or every week or month if you turn on *Check links automatically* in Settings; off by default) | Each bookmark's address, one request each | A normal web request with the user agent `BookmarkSyncer` |
 | **Auto-categorize with Claude** (only if you choose Claude in Settings and add your own API key) | Anthropic's API (`api.anthropic.com`) | Each bookmark's title, URL and original folder name, for the bookmarks being categorized. [Anthropic's privacy policy](https://www.anthropic.com/legal/privacy) applies to that data |
+| **New version check** (once a day; on by default in the installed app, turn it off in ⚙ Settings → *Updates*; not in the Microsoft Store version) | GitHub's API (`api.github.com`), to read the number of the newest release of Bookmark syncer | A normal web request with the user agent `BookmarkSyncer`. Nothing about you, your PC or your bookmarks is sent; GitHub sees your IP address, as with any visit. [GitHub's privacy statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement) applies. The app never downloads or installs anything by itself |
 | **Opening links** (a bookmark, the Wayback Machine copy, help pages, the tip link) | Opens in your default web browser | Whatever your browser normally sends |
 
 These features never connect to the internet:
 
 - **Auto-categorize with built-in rules**, the default. It works offline.
 - **Auto-categorize with local AI (Ollama)**. It talks only to Ollama running on your own PC (`127.0.0.1`).
-- **Updates**. The app does not check for updates by itself. If you install it from the Microsoft Store, the Store updates it, and [Microsoft's privacy statement](https://privacy.microsoft.com/privacystatement) covers the Store itself (downloads, purchases, updates). The app sends Microsoft nothing of its own.
+- **The start page**. It is a file on your PC and loads nothing from the web, not even site icons.
+- **The Microsoft Store version** doesn't run the new version check: the Store updates it, and [Microsoft's privacy statement](https://privacy.microsoft.com/privacystatement) covers the Store itself (downloads, purchases, updates). The app sends Microsoft nothing of its own.
 
 ## The browser extension
 
@@ -73,6 +77,7 @@ The app is not directed at children and collects no personal information from an
 
 ## Your choices
 
+- **Turn off the new version check**: untick it in ⚙ Settings → *Updates*.
 - **Turn off Claude**: choose *Built-in rules* or *Local AI* in ⚙ Settings, and click *Remove key* to delete a saved API key.
 - **Delete bookmarks**: delete them in the app; *Recently deleted* keeps a copy you can restore. Deleting the data folder removes everything the app stored.
 - **Remove the browser extension**: remove it from your browser's extensions page.

@@ -15,7 +15,7 @@ The renderer runs sandboxed with `contextIsolation: true` and `nodeIntegration: 
 |---|---|
 | `main.js` | Window creation and IPC handlers: import, list, update, remove, categorize, link check, export, settings, API key storage |
 | `preload.js` | Exposes `window.api` to the renderer |
-| `src/importers.js` | Finds browser profiles and parses Chromium `Bookmarks` JSON (Chrome, Edge, Brave, Vivaldi, Opera, Chromium, Comet), Firefox `places.sqlite` (Firefox, Zen, Floorp, Waterfox; copied first, since the browser locks it) and Netscape `bookmarks.html`. Only folders that exist are listed. `detectExportOnly()` reports installed browsers that can only be imported through an export (DuckDuckGo, whose bookmarks are encrypted) |
+| `src/importers.js` | Finds browser profiles and parses Chromium `Bookmarks` JSON (Chrome, Edge, Brave, Vivaldi, Opera, Chromium, Comet), Firefox `places.sqlite` (Firefox, Zen, Floorp, Waterfox; copied first, since the browser locks it) and Netscape `bookmarks.html`. Only folders that exist are listed. `detectExportOnly()` reports installed browsers that can only be imported through an export (DuckDuckGo, whose bookmarks are encrypted); `findBookmarkExports(dir)` lists recent Netscape bookmark files in Downloads for its one-click import |
 | `src/normalize.js` | URL normalization used to merge duplicates |
 | `src/duplicates.js` | Near-duplicates: a looser URL key (`m.`/AMP/`youtu.be`/index pages, case) plus same path + title, grouped with union-find. Picks which bookmark to keep |
 | `src/autoimport.js` | Imports on start and when a browser's bookmark file changes (checks timestamps once a minute; Firefox at most every 10 minutes) |
@@ -27,8 +27,10 @@ The renderer runs sandboxed with `contextIsolation: true` and `nodeIntegration: 
 | `src/claude.js` | Claude categorizer (Anthropic SDK, structured JSON output). Also holds the shared prompt and schema |
 | `src/browsersync.js` | "Sync to browsers": finds deleted URLs in each profile, then removes them (refuses while the browser runs, backs up first, writes atomically). Chromium: edits the `Bookmarks` JSON and drops its checksum. Firefox: deletes rows, fixes `foreign_count` and positions, and writes `moz_bookmarks_deleted` tombstones for Firefox Sync |
 | `src/bridge.js` | Local HTTP server for the browser extension, on `127.0.0.1:47615` while the app runs. Accepts only `chrome-extension://` (and `moz-`/`edge-`) origins, a matching `Host` (against DNS rebinding) and the pairing code (`X-Bookmark-Syncer-Token`). Routes: `GET /v1/hello`, `GET /v1/deleted` (normalized URLs), `GET /v1/categories` (normalized URL → category, merged URLs included), `POST /v1/report` |
-| `extension/` | The **Bookmark syncer helper** (Manifest V3). `core.js` finds, removes and restores bookmarks, and sorts them into category folders (and back), with `chrome.bookmarks`; `popup.*` is the UI; `normalize.js` is shared with the app (`src/normalize.js` re-exports it) so both match URLs the same way |
+| `extension/` | The **Bookmark syncer helper** (Manifest V3). `core.js` finds, removes and restores bookmarks, and sorts them into category folders (and back, also recreating old folders that sorting emptied and removed), with `chrome.bookmarks`; `popup.*` is the UI; `normalize.js` is shared with the app (`src/normalize.js` re-exports it) so both match URLs the same way |
 | `src/extbuild.js` | Builds the Firefox version of the extension: copies `extension/` and adds `browser_specific_settings` (add-on ID, data collection: none) to the manifest. The app writes it to `%APPDATA%\Bookmark syncer\firefox-extension\` |
+| `src/updates.js` | The new version check: asks GitHub's API for the latest release and compares version numbers. Links only ever point at the project's releases page. Not used in the Store version |
+| `src/startpage.js` | Builds the start page (`start.html`): bookmarks by category, escaped, http(s) only, no dead links, with inline CSS and a search script and a CSP that blocks all network access. `main.js` rewrites it 3 s after each library save (it wraps `Library.prototype.save`) |
 | `src/linkcheck.js` | HEAD/GET link checker with timeouts and limited concurrency |
 | `renderer/` | UI: sidebar views, list, detail panel, dialogs, right-click menu |
 | `scripts/test-db.js` | Integration test against the browsers on this PC |
@@ -38,7 +40,8 @@ The renderer runs sandboxed with `contextIsolation: true` and `nodeIntegration: 
 | `scripts/test-safety.js` | Daily backups and snapshots, pruning, restoring a backup, recovery from a damaged library, the crash log |
 | `scripts/test-library-file.js` | Whole-library JSON export and import: into an empty library, into one with its own values, again, and bad files |
 | `scripts/make-demo.js` | Builds a made-up library and saves `docs/screenshot.png` |
-| `scripts/test-browsers.js` | Detection of Comet, Zen, Floorp, Waterfox and DuckDuckGo in a made-up AppData folder (copies of this PC's files), including that missing browsers aren't listed |
+| `scripts/test-browsers.js` | Detection of Comet, Zen, Floorp, Waterfox and DuckDuckGo in a made-up AppData folder (copies of this PC's files), including that missing browsers aren't listed, and finding bookmark exports in a made-up Downloads folder |
+| `scripts/test-updates.js`, `test-startpage.js` | The new version check against a fake GitHub, and the start page (escaping, unsafe and dead links left out, order, Swedish) |
 | `scripts/make-icons.js` | Draws the icon (a house whose door is a bookmark ribbon) as the extension icons, `build/icon.ico` and the Store tiles in `build/appx/` (pure Node, no dependencies) |
 | `package.json` → `build` | electron-builder settings for the NSIS installer (`npm run dist`): per-user install, keeps the library on uninstall, `extension/` unpacked from `app.asar` so browsers can load it as a folder, English and Swedish Electron locales only. `build.appx` holds the Microsoft Store identity |
 | `scripts/dist-store.js`, `build/appxmanifest.xml` | The Microsoft Store package (`npm run dist:store`). The manifest turns off file and registry write virtualization (`unvirtualizedResources`) so the Store version shares `%APPDATA%\Bookmark syncer` and can write the browsers' files, and adds a Windows startup task for *Start with Windows*. The script runs `makeappx.exe` from a temp copy, because it fails to start from electron-builder's cache on some PCs |
@@ -70,4 +73,5 @@ Environment variables for automated checks:
 - `BMLIB_SNAPSHOT_JS`: JavaScript to run in the page before the snapshot
 - `BMLIB_NO_BRIDGE`: don't start the extension bridge (when another copy of the app already uses the port)
 - `BMLIB_NO_AUTOIMPORT`: don't import automatically
+- `BMLIB_DOWNLOADS`: a different Downloads folder (where the DuckDuckGo import looks for exports)
 - `BMLIB_NO_DESKTOP`: no tray, global shortcut or Windows startup (off automatically with `BMLIB_SNAPSHOT`; `BMLIB_DESKTOP=1` turns them back on)

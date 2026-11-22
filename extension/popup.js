@@ -220,7 +220,7 @@ async function openOrganize() {
   show('organize');
   $('#org-summary').textContent = t('Looking at your categories…');
   $('#org-list').innerHTML = '';
-  $('#org-go').classList.add('hidden');
+  $('#org-go').classList.add('hidden'); $('#org-empty-row').classList.add('hidden');
   const last = await store.get('lastOrganize');
   $('#org-undo').classList.toggle('hidden', !(last && last.moves.length));
   let items;
@@ -241,26 +241,31 @@ async function openOrganize() {
     li.append(c);
     $('#org-list').append(li);
   }
-  $('#org-go').classList.remove('hidden');
+  $('#org-go').classList.remove('hidden'); $('#org-empty-row').classList.remove('hidden');
   $('#org-go').disabled = false;
 }
 
 $('#org-open').onclick = openOrganize;
+// "Remove empty folders" is remembered; on by default.
+store.get('removeEmptyFolders').then(v => { $('#org-empty').checked = v !== false; });
 $('#org-back').onclick = load;
 
 $('#org-go').onclick = async () => {
   $('#org-go').disabled = true;
   $('#org-go').textContent = t('Sorting…');
   const tree = await bm.getTree();
-  const undo = await BMCore.applyOrganize(bm, tree, orgMoves);
-  await store.set('lastOrganize', { at: Date.now(), moves: undo.moves, createdFolders: undo.createdFolders });
+  const removeEmpty = $('#org-empty').checked;
+  await store.set('removeEmptyFolders', removeEmpty);
+  const undo = await BMCore.applyOrganize(bm, tree, orgMoves, { removeEmpty });
+  await store.set('lastOrganize', { at: Date.now(), moves: undo.moves, createdFolders: undo.createdFolders, removedFolders: undo.removedFolders });
   call('/v1/report', state.token, { organized: undo.moves.length }).catch(() => {});
   $('#org-summary').innerHTML = t('<b>Sorted {bookmarks}.</b>', { bookmarks: plural(undo.moves.length, 'bookmark') }) +
     (undo.failed.length ? ' ' + t("{n} couldn't be moved (managed or read-only).", { n: undo.failed.length }) : '') +
-    ' ' + t('Find them under <i>{path}</i>.', { path: `${esc(otherTitle(tree))} → ${BMCore.ROOT_FOLDER}` });
+    ' ' + t('Find them under <i>{path}</i>.', { path: `${esc(otherTitle(tree))} → ${BMCore.ROOT_FOLDER}` }) +
+    (undo.removedFolders.length ? ' ' + tn(undo.removedFolders.length, 'Removed 1 empty folder.', 'Removed {n} empty folders.') : '');
   $('#org-list').innerHTML = '';
   $('#org-go').textContent = t('Sort them');
-  $('#org-go').classList.add('hidden');
+  $('#org-go').classList.add('hidden'); $('#org-empty-row').classList.add('hidden');
   $('#org-undo').classList.toggle('hidden', !undo.moves.length);
 };
 
@@ -274,7 +279,7 @@ $('#org-undo').onclick = async () => {
   call('/v1/report', state.token, { unorganized: true }).catch(() => {});
   $('#org-summary').innerHTML = t('<b>Moved {bookmarks} back</b> to where they were.', { bookmarks: plural(n, 'bookmark') });
   $('#org-list').innerHTML = '';
-  $('#org-go').classList.add('hidden');
+  $('#org-go').classList.add('hidden'); $('#org-empty-row').classList.add('hidden');
   $('#org-undo').classList.add('hidden');
   $('#org-undo').disabled = false;
 };

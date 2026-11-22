@@ -8,10 +8,10 @@
   "scripts": {
     "start": "electron .",
     "smoke": "node scripts/smoke.js",
-    "test": "node scripts/test-db.js && node scripts/test-sync.js && node scripts/test-extension.js && node scripts/test-ollama.js && node scripts/test-dups.js && node scripts/test-autoimport.js && node scripts/test-later.js && node scripts/test-safety.js && node scripts/test-library-file.js && node scripts/test-browsers.js && node scripts/check-i18n.js",
+    "test": "node scripts/test-db.js && node scripts/test-sync.js && node scripts/test-extension.js && node scripts/test-ollama.js && node scripts/test-dups.js && node scripts/test-autoimport.js && node scripts/test-later.js && node scripts/test-safety.js && node scripts/test-library-file.js && node scripts/test-browsers.js && node scripts/test-updates.js && node scripts/test-startpage.js && node scripts/check-i18n.js",
     "dist": "electron-builder --win nsis",
     "dist:store": "node scripts/dist-store.js",
-    "check-i18n": "node scripts/test-browsers.js && node scripts/check-i18n.js"
+    "check-i18n": "node scripts/check-i18n.js"
   },
   "license": "GPL-3.0-only",
   "type": "commonjs",

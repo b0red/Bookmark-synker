@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, clipboard, nati
 const fs = require('fs');
 const path = require('path');
 const { Library } = require('./src/db');
-const { detectSources, detectExportOnly, parseChromium, parseFirefox, parseHtml } = require('./src/importers');
+const { detectSources, detectExportOnly, findBookmarkExports, parseChromium, parseFirefox, parseHtml } = require('./src/importers');
 const claude = require('./src/claude');
 const ollama = require('./src/ollama');
 const rules = require('./src/rules');
@@ -18,7 +18,10 @@ const safety = require('./src/safety');
 let win, lib;
 let tray = null, quitting = false, hotkeyStatus = { ok: true, active: false };
 const ICON = path.join(__dirname, 'extension', 'icon48.png');
-const startHidden = process.argv.includes('--hidden');
+// The Store version starts with Windows through a Windows startup task, which can't pass --hidden. So a Store launch in the
+// first few minutes after Windows starts counts as that startup launch and goes to the tray too. (Opening the app again shows it.)
+const STORE_AUTOSTART_SECONDS = 180;
+const startHidden = process.argv.includes('--hidden') || (!!process.windowsStore && require('os').uptime() < STORE_AUTOSTART_SECONDS);
 // Tests and screenshots never touch the tray, the global shortcut or Windows startup.
 const DESKTOP_HOOKS = process.env.BMLIB_DESKTOP === '1' || (!process.env.BMLIB_SNAPSHOT && !process.env.BMLIB_NO_DESKTOP);
 const dataDir = () => app.getPath('userData');
@@ -154,7 +157,7 @@ async function loadKey() {
 
 const settingsFile = () => path.join(dataDir(), 'settings.json');
 const DEFAULT_SETTINGS = { categorizer: 'rules', ollamaModel: 'qwen2.5:3b', importOnStart: true, watchBrowsers: true, readLaterNudge: true,
-  hotkeyEnabled: true, hotkey: trayMod.DEFAULT_HOTKEY, closeToTray: true, startWithWindows: false, autoLinkCheck: 'off', theme: 'system', language: 'auto' };
+  hotkeyEnabled: true, hotkey: trayMod.DEFAULT_HOTKEY, closeToTray: true, startWithWindows: false, autoLinkCheck: 'off', theme: 'system', language: 'auto', updateCheck: true, startPage: false };
 
 function loadSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; } catch { return { ...DEFAULT_SETTINGS }; }
@@ -198,6 +201,22 @@ ipcMain.handle('import:html', async () => {
       return { label: path.basename(file), error: e.message };
     }
   });
+});
+
+// BMLIB_DOWNLOADS (dev hook): a different Downloads folder, for tests.
+const downloadsDir = () => process.env.BMLIB_DOWNLOADS || app.getPath('downloads');
+// DuckDuckGo: the newest bookmark export in Downloads, then importing exactly that file (only files from that folder).
+ipcMain.handle('import:findExport', () => findBookmarkExports(downloadsDir())[0] || null);
+ipcMain.handle('import:exportFile', (_e, file, browser) => {
+  const found = findBookmarkExports(downloadsDir()).find(f => f.path === file);
+  if (!found) return [{ label: path.basename(String(file)), error: t('That file is no longer in your Downloads folder.') }];
+  const label = `${browser || 'File'} · export`;
+  try {
+    const items = parseHtml(fs.readFileSync(found.path, 'utf8'));
+    return [{ label, found: items.length, ...lib.importItems(items, label) }];
+  } catch (e) {
+    return [{ label, error: e.message }];
+  }
 });
 
 ipcMain.handle('library:list', () => { updateDeadCount(); return lib.list(); });
@@ -270,6 +289,8 @@ ipcMain.handle('settings:save', (_e, patch) => {
     applyDesktop(rest); // hotkey messages
     if (win && !win.isDestroyed()) setTimeout(() => win.reload(), 50);
   }
+  if ('updateCheck' in safe && rest.updateCheck) setTimeout(() => checkForUpdates(), 2000).unref();
+  if (rest.startPage && ('startPage' in safe || 'language' in safe)) { try { writeStartPage(); } catch (e) { safety.logError(dataDir(), 'start page', e); } }
   if ('autoLinkCheck' in safe && AUTO_CHECK_EVERY[rest.autoLinkCheck]) setTimeout(maybeAutoLinkCheck, 60 * 1000).unref();
   return { ...rest, hotkeyStatus };
 });
@@ -389,6 +410,54 @@ const deadIds = () => new Set(lib.all("SELECT id FROM bookmarks WHERE status = '
 function updateDeadCount() {
   if (tray && lib) tray.setDeadCount(deadIds().size);
 }
+
+// ---------- update check (GitHub releases; not in the Store version, which the Store updates) ----------
+const updates = require('./src/updates');
+const UPDATE_EVERY = 24 * 60 * 60 * 1000;
+
+// force: the "Check now" button (ignores the setting and the once-a-day limit, and doesn't announce in the tray).
+async function checkForUpdates(force = false) {
+  if (process.windowsStore) return { store: true };
+  const s = loadSettings();
+  if (!force && (!s.updateCheck || Date.now() - (s.lastUpdateCheck || 0) < UPDATE_EVERY)) return null;
+  let latest;
+  try { latest = await updates.latestRelease(); } catch (e) { return { error: e.message }; }
+  saveSettings({ lastUpdateCheck: Date.now() });
+  const current = app.getVersion();
+  const result = { current, latest: latest.version, url: latest.url, available: updates.isNewer(latest.version, current) };
+  if (result.available && !force && s.updateNotified !== latest.version) {
+    saveSettings({ updateNotified: latest.version }); // each new version is announced once
+    send('update', result);
+    if (tray) tray.tray.displayBalloon({ iconType: 'info', title: 'Bookmark syncer', content: t('Version {version} is out. Open the app to download it.', { version: latest.version }) });
+  }
+  return result;
+}
+ipcMain.handle('updates:check', () => checkForUpdates(true));
+ipcMain.handle('updates:open', (_e, url) => shell.openExternal(String(url).startsWith(updates.RELEASES_PAGE) ? url : updates.RELEASES_PAGE));
+
+// ---------- start page (an HTML file with the bookmarks by category, for the browser's home page) ----------
+const { buildStartPage } = require('./src/startpage');
+const startPageFile = () => path.join(dataDir(), 'start.html');
+const startPageUrl = () => require('url').pathToFileURL(startPageFile()).href;
+let startPageTimer = null;
+
+function writeStartPage() {
+  if (!lib) return;
+  const html = buildStartPage(lib.list(), { t, lang: LANG, updated: localTime(Date.now()) });
+  safety.writeFileAtomic(startPageFile(), html);
+}
+// Rewritten a few seconds after the library changes (every change ends with a save).
+function scheduleStartPage() {
+  if (!loadSettings().startPage) return;
+  clearTimeout(startPageTimer);
+  startPageTimer = setTimeout(() => { try { writeStartPage(); } catch (e) { safety.logError(dataDir(), 'start page', e); } }, 3000);
+  startPageTimer.unref?.();
+}
+const librarySave = Library.prototype.save;
+Library.prototype.save = function save() { librarySave.call(this); scheduleStartPage(); };
+
+ipcMain.handle('startpage:info', () => ({ file: startPageFile(), url: startPageUrl(), exists: fs.existsSync(startPageFile()) }));
+ipcMain.handle('startpage:open', () => { writeStartPage(); return shell.openExternal(startPageUrl()); });
 
 async function maybeAutoLinkCheck() {
   const s = loadSettings();
@@ -567,6 +636,7 @@ app.whenReady().then(async () => {
   LANG = resolveLanguage();
   dailyBackup();
   setInterval(dailyBackup, 60 * 60 * 1000).unref();
+  scheduleStartPage(); // refresh it on start (when turned on)
   createWindow();
   if (opened.recovered) {
     const r = opened.recovered;
@@ -589,6 +659,8 @@ app.whenReady().then(async () => {
   if (!process.env.BMLIB_SNAPSHOT) {
     setTimeout(maybeAutoLinkCheck, 2 * 60 * 1000).unref();
     setInterval(maybeAutoLinkCheck, 60 * 60 * 1000).unref();
+    setTimeout(() => checkForUpdates(), 30 * 1000).unref();
+    setInterval(() => checkForUpdates(), 6 * 60 * 60 * 1000).unref();
   }
   win.webContents.once('did-finish-load', () => setTimeout(setupAutoImport, 1500));
   if (!process.env.BMLIB_NO_BRIDGE) {

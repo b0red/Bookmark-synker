@@ -121,8 +121,32 @@
     return [...by.entries()].map(([folder, count]) => ({ folder, count }));
   }
 
-  // Moves the bookmarks. Returns undo data: { moves: [{ id, parentId, index }], createdFolders: [ids] }.
-  async function applyOrganize(bm, tree, moves) {
+  // After sorting: removes the folders the bookmarks came from if they are now empty, and then their parent folders
+  // if those became empty too. Never the browser's own top folders (Bookmarks bar, Other bookmarks, …), folders that
+  // still hold anything, or folders the browser doesn't allow changing. Returns what Undo needs to recreate them,
+  // in the order they were removed (innermost first).
+  async function removeEmptyFolders(bm, tree, folderIds) {
+    const roots = new Set([...(tree[0] ? [tree[0].id] : []), ...((tree[0] && tree[0].children) || []).map(c => c.id)]);
+    const removed = [];
+    const queue = [...new Set(folderIds)];
+    while (queue.length) {
+      const id = queue.shift();
+      if (roots.has(id)) continue;
+      let node, kids;
+      try { [node] = await bm.get(id); kids = await bm.getChildren(id); } catch { continue; }
+      if (!node || node.url || node.unmodifiable || kids.length) continue;
+      try {
+        await bm.remove(id);
+        removed.push({ id, parentId: node.parentId, index: node.index, title: node.title || '' });
+        queue.push(node.parentId);
+      } catch { /* the browser refused; leave it */ }
+    }
+    return removed;
+  }
+
+  // Moves the bookmarks. Returns undo data: { moves: [{ id, parentId, index }], createdFolders: [ids], removedFolders: [...] }.
+  // options.removeEmpty: also remove the folders that end up empty (see removeEmptyFolders).
+  async function applyOrganize(bm, tree, moves, options = {}) {
     const otherId = otherFolderId(tree);
     const other = findNode(tree, otherId);
     const folders = new Map(); // path -> id
@@ -152,14 +176,28 @@
         failed.push({ url: m.url, error: String((e && e.message) || e) });
       }
     }
-    return { moves: done, createdFolders, failed };
+    const removedFolders = options.removeEmpty ? await removeEmptyFolders(bm, tree, done.map(m => m.parentId)) : [];
+    return { moves: done, createdFolders, removedFolders, failed };
   }
 
-  // Moves everything back, then removes the folders it created if they are empty.
+  // Moves everything back (first recreating any folders that were removed because they were empty),
+  // then removes the folders it created if they are empty.
   async function undoOrganize(bm, undo, fallbackParentId) {
     let moved = 0;
+    // Recreated folders get new ids; map the old ones. Outermost first, so a parent exists before its children.
+    const newId = new Map();
+    const mapId = (id) => newId.get(id) || id;
+    const folders = [...(undo.removedFolders || [])].reverse();
+    for (const f of folders) {
+      const parentId = mapId(f.parentId);
+      let made;
+      try { made = await bm.create({ parentId, index: f.index, title: f.title }); }
+      catch { try { made = await bm.create({ parentId, title: f.title }); } catch { continue; } }
+      newId.set(f.id, made.id);
+    }
     // Lowest index first per folder, so each one lands at its original position.
-    const order = [...undo.moves].sort((a, b) => (a.parentId === b.parentId ? a.index - b.index : String(a.parentId).localeCompare(String(b.parentId))));
+    const order = undo.moves.map(m => ({ ...m, parentId: mapId(m.parentId) }))
+      .sort((a, b) => (a.parentId === b.parentId ? a.index - b.index : String(a.parentId).localeCompare(String(b.parentId))));
     for (const m of order) {
       let parentId = m.parentId;
       try { await bm.get(parentId); } catch { parentId = fallbackParentId; }
@@ -177,7 +215,7 @@
     return moved;
   }
 
-  const api = { flatten, findMatches, removeMatches, restore, otherFolderId, planOrganize, summarizePlan, applyOrganize, undoOrganize, ROOT_FOLDER };
+  const api = { flatten, findMatches, removeMatches, restore, otherFolderId, planOrganize, summarizePlan, applyOrganize, removeEmptyFolders, undoOrganize, ROOT_FOLDER };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.BMCore = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

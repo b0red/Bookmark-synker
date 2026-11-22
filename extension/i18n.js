@@ -27,7 +27,10 @@ const SV_POPUP = {
   'Sort them': 'Sortera dem',
   'Undo sorting': 'Ångra sorteringen',
   'Back': 'Tillbaka',
-  'Bookmarks are only moved, never deleted, into a <i>Bookmark syncer</i> folder under Other bookmarks, one folder per category. Your browser sync moves them on your other devices too.': 'Bokmärkena flyttas bara, tas aldrig bort, till en mapp <i>Bookmark syncer</i> under Andra bokmärken, en mapp per kategori. Webbläsarens synkning flyttar dem på dina andra enheter också.',
+  'Bookmarks are only moved, never deleted, into a <i>Bookmark syncer</i> folder under Other bookmarks, one folder per category. Folders they leave empty can be removed. Undo puts everything back, folders too. Your browser sync moves them on your other devices too.': 'Bokmärkena flyttas bara, tas aldrig bort, till en mapp <i>Bookmark syncer</i> under Andra bokmärken, en mapp per kategori. Mappar som blir tomma kan tas bort. Ångra lägger tillbaka allt, mapparna också. Webbläsarens synkning flyttar dem på dina andra enheter också.',
+  'Remove folders that end up empty': 'Ta bort mappar som blir tomma',
+  'Removed 1 empty folder.': 'Tog bort 1 tom mapp.',
+  'Removed {n} empty folders.': 'Tog bort {n} tomma mappar.',
   'Change pairing code': 'Byt kopplingskod',
   // popup.js
   'Could not reach the app. Is Bookmark syncer open?': 'Kunde inte nå appen. Är Bookmark syncer öppen?',

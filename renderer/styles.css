@@ -279,3 +279,7 @@ input.hotkey:focus { outline: 2px solid var(--accent); }
 .settings-pair { display: flex; gap: 12px; }
 .settings-pair > div { flex: 1; min-width: 0; }
 .settings-pair select { width: 100%; }
+.export-only { border: 1px dashed var(--border); border-radius: 6px; padding: 8px 10px; margin-top: 4px; }
+.export-only p, .export-only ol { margin: 0 0 6px; }
+.export-only ol { padding-left: 20px; }
+.export-only .row { align-items: center; gap: 8px; flex-wrap: wrap; }

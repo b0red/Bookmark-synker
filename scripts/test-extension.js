@@ -119,6 +119,14 @@ function fakeBookmarks(root) {
 }
 
 const layout = (tree) => core.flatten(tree).map(b => `${b.folder}\t${b.index}\t${b.url}\t${b.title}`);
+// Every folder with its path and position.
+const folderLayout = (tree) => {
+  const out = [];
+  const walk = (n, trail) => { for (const c of n.children || []) if (!c.url) { const p = [...trail, c.title]; out.push(`${p.join(' / ')}\t${c.index}`); walk(c, p); } };
+  tree.forEach(r => walk(r, []));
+  return out;
+};
+const findIn = (tree, id) => { const st = [...tree]; while (st.length) { const n = st.pop(); if (n.id === id) return n; if (n.children) st.push(...n.children); } return null; };
 
 (async () => {
   // ---------- 1. bridge ----------
@@ -273,7 +281,22 @@ const layout = (tree) => core.flatten(tree).map(b => `${b.folder}\t${b.index}\t$
     assert.deepStrictEqual(layout(await bm.getTree()), before, `${s.label}: undo sorting didn't restore the exact layout`);
     const otherAfter = (await bm.getTree())[0].children.find(c => c.id === core.otherFolderId(sorted));
     assert.ok(!otherAfter.children.some(c => c.title === core.ROOT_FOLDER && !c.url && !c.children.length), 'empty folders are cleaned up');
-    console.log(`${s.label}: found ${matches.length}, deleted ${removed.length}, undo restored all in place; sorted ${plan.length} into folders and back. OK`);
+    // Again with "Remove folders that end up empty": no empty source folder is left, and Undo recreates them in place.
+    const foldersBefore = folderLayout(await bm.getTree());
+    const plan2 = core.planOrganize(await bm.getTree(), cats);
+    const undo2 = await core.applyOrganize(bm, await bm.getTree(), plan2, { removeEmpty: true });
+    const sorted2 = await bm.getTree();
+    assert.strictEqual(core.flatten(sorted2).length, before.length, 'removing empty folders deletes no bookmark');
+    const topIds = new Set([sorted2[0].id, ...sorted2[0].children.map(c => c.id)]);
+    for (const id of new Set(undo2.moves.map(m => m.parentId))) {
+      const n = findIn(sorted2, id);
+      assert.ok(!n || n.children.length || topIds.has(id), `${s.label}: source folder ${id} left empty`);
+    }
+    for (const f of undo2.removedFolders) assert.ok(!topIds.has(f.id), 'top folders are never removed');
+    await core.undoOrganize(bm, undo2, core.otherFolderId(sorted2));
+    assert.deepStrictEqual(layout(await bm.getTree()), before, `${s.label}: undo after removing empty folders didn't restore the bookmarks`);
+    assert.deepStrictEqual(folderLayout(await bm.getTree()), foldersBefore, `${s.label}: undo didn't recreate the removed folders in place`);
+    console.log(`${s.label}: found ${matches.length}, deleted ${removed.length}, undo restored all in place; sorted ${plan.length} into folders and back; ${undo2.removedFolders.length} empty folders removed and recreated. OK`);
     tested++;
   }
   assert.ok(tested > 0, 'no browser profiles to test');
