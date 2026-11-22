@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.1 (2026-11-22)
 
 - **More browsers**: Comet (Perplexity), Zen, Floorp and Waterfox are found by Import, Import automatically and Sync to browsers. Only browsers that are installed are listed
 - **DuckDuckGo**: its bookmarks are encrypted, so they can't be read directly. When it's installed, the Import dialog explains how to export them to a `bookmarks.html` file instead
