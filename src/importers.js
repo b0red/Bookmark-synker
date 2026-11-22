@@ -78,6 +78,15 @@ function detectSources() {
   return found;
 }
 
+// Browsers whose bookmarks can't be read directly, only exported to a bookmarks.html file.
+// DuckDuckGo for Windows keeps them in an encrypted database, whose key also protects its password vault, so the app doesn't open it.
+function detectExportOnly() {
+  const found = [];
+  const pkgs = listDirs(path.join(LOCAL, 'Packages'));
+  if (pkgs.some(p => /^DuckDuckGo.DesktopBrowser_/i.test(p))) found.push({ browser: 'DuckDuckGo' });
+  return found;
+}
+
 // ---------- Chromium (Chrome, Edge, Brave, ...) ----------
 
 // Chromium stores microseconds since 1601-01-01.
@@ -246,4 +255,4 @@ function parseHtml(text) {
   return out;
 }
 
-module.exports = { detectSources, parseChromium, parseFirefox, parseHtml };
+module.exports = { detectExportOnly, detectSources, parseChromium, parseFirefox, parseHtml };

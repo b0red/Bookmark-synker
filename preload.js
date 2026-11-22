@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   lang: ipcRenderer.sendSync('app:lang'), // 'en' or 'sv', fixed until the window reloads
   detectSources: () => ipcRenderer.invoke('sources:detect'),
+  detectExportOnly: () => ipcRenderer.invoke('sources:exportOnly'),
   importSources: (sources) => ipcRenderer.invoke('import:sources', sources),
   importHtml: () => ipcRenderer.invoke('import:html'),
   list: () => ipcRenderer.invoke('library:list'),

@@ -257,6 +257,7 @@ var SV_STRINGS = {
   'Checking links…': 'Kontrollerar länkar…',
   'Stopping…': 'Stoppar…',
   '(imported before)': '(importerad tidigare)',
+  '{browser} is installed, but it keeps its bookmarks encrypted, so they cannot be read directly. In {browser}, export your bookmarks to an HTML file, then use “Import a bookmarks.html file…”.': '{browser} är installerad, men den sparar bokmärkena krypterade, så de kan inte läsas direkt. Exportera bokmärkena till en HTML-fil i {browser} och använd sedan ”Importera en bookmarks.html-fil…”.',
   'No browser profiles found. Use “Import a bookmarks.html file…” instead.': 'Hittade inga webbläsarprofiler. Använd ”Importera en bookmarks.html-fil…” i stället.',
   '{found} found · <b>{added} new</b> · {merged} were already in the library (merged)': '{found} hittade · <b>{added} nya</b> · {merged} fanns redan i biblioteket (ihopslagna)',
   '{n} skipped because you deleted them earlier': '{n} hoppades över eftersom du tagit bort dem tidigare',

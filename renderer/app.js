@@ -452,6 +452,9 @@ async function openImport() {
     ? sources.map((s, i) => `<label><input type="checkbox" data-i="${i}" ${imported.has(s.label) ? '' : 'checked'}>
         <div><div>${esc(s.label)}${imported.has(s.label) ? ` <span class="muted small">${t('(imported before)')}</span>` : ''}</div><div class="p">${esc(s.path)}</div></div></label>`).join('')
     : `<p class="muted">${t('No browser profiles found. Use “Import a bookmarks.html file…” instead.')}</p>`;
+  // Installed browsers the app can't read directly (only shown when they're installed).
+  const exportOnly = await window.api.detectExportOnly();
+  $('#import-sources').innerHTML += exportOnly.map(b => `<p class="muted small">${t('{browser} is installed, but it keeps its bookmarks encrypted, so they cannot be read directly. In {browser}, export your bookmarks to an HTML file, then use “Import a bookmarks.html file…”.', { browser: esc(b.browser) })}</p>`).join('');
   dlg.sources = sources;
   dlg.showModal();
 }

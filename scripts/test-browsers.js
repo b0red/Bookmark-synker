@@ -51,6 +51,11 @@ const { detectSources, parseChromium, parseFirefox } = require('../src/importers
     }
     assert.ok(!labels.some(l => l.startsWith('Waterfox')), 'an empty Waterfox profile is not listed');
     assert.ok(!labels.some(l => /^(Chrome|Edge|Firefox|Brave|Vivaldi|Opera)/.test(l)), 'browsers that are not in this AppData are not listed');
+    // DuckDuckGo: only the export hint, and only when it's installed.
+    const { detectExportOnly } = require('../src/importers');
+    assert.deepStrictEqual(detectExportOnly(), [], 'no DuckDuckGo hint when it is not installed');
+    fs.mkdirSync(path.join(LOCAL, 'Packages', 'DuckDuckGo.DesktopBrowser_ya2fgkz3nks94'), { recursive: true });
+    assert.deepStrictEqual(detectExportOnly(), [{ browser: 'DuckDuckGo' }], 'DuckDuckGo hint when it is installed');
     if (!realPlaces) console.log('  (no Firefox profile on this PC to copy: Zen and Floorp skipped)');
     console.log('extra browsers: ok');
   } finally {

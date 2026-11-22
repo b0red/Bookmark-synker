@@ -36,7 +36,7 @@ Ranked by how much each helps the main job (one clean library that stays in step
 - Favicons are fetched from each site directly, so some fail or trigger harmless SSL warnings in the terminal.
 - Ollama on older NVIDIA cards (e.g. GTX 900 series) crashes on the GPU. The app switches to the CPU (slow) and remembers it; see ⚙ Settings.
 - Safari and Chromium-based browsers in unusual install locations aren't auto-detected. Use the `bookmarks.html` import.
-- DuckDuckGo for Windows keeps its bookmarks in its own format, which isn't read yet. Export them from DuckDuckGo as an HTML file and use the `bookmarks.html` import.
+- DuckDuckGo for Windows keeps its bookmarks in an encrypted database (the same key protects its saved passwords), so the app doesn't read it. When DuckDuckGo is installed, the Import dialog says to export the bookmarks to an HTML file and use the `bookmarks.html` import. Sync to browsers and the extension don't work with DuckDuckGo.
 - Only tested on Windows 10.
 - Sync to browsers (file-based): with Chrome or Edge sync turned on, the sync server restores deleted bookmarks. Use the browser extension for those profiles.
 - Sync to browsers and the extension delete by URL, so a URL saved in several folders of the same browser is removed from all of them.

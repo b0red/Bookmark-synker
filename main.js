@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, clipboard, nati
 const fs = require('fs');
 const path = require('path');
 const { Library } = require('./src/db');
-const { detectSources, parseChromium, parseFirefox, parseHtml } = require('./src/importers');
+const { detectSources, detectExportOnly, parseChromium, parseFirefox, parseHtml } = require('./src/importers');
 const claude = require('./src/claude');
 const ollama = require('./src/ollama');
 const rules = require('./src/rules');
@@ -163,6 +163,7 @@ function loadSettings() {
 // ---------- IPC ----------
 
 ipcMain.handle('sources:detect', () => detectSources());
+ipcMain.handle('sources:exportOnly', () => detectExportOnly());
 
 function importSource(s) {
   const items = s.type === 'firefox' ? parseFirefox(s.path, lib.SQL) : parseChromium(s.path);
