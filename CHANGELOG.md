@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0 (2026-11-22)
 
 - **Start page**: ⚙ Settings → *Start page* keeps a page with your Favorites, Read later and every category, with a search box, to use as the browser's home page. The app updates it when the library changes. It's a file on your PC (`start.html`) and loads nothing from the web. Off by default
 - **New version notice**: once a day the app asks GitHub whether there's a newer release and tells you, in the window and the tray, once per version. It never downloads anything by itself. ⚙ Settings → *Updates* turns it off or checks now. Not in the Microsoft Store version

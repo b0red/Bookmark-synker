@@ -1,7 +1,7 @@
 # Privacy policy
 
 **Bookmark syncer** (the Windows app and its *Bookmark syncer helper* browser extension)
-Effective date: 22 November 2026 (updated for the next version: the new-version check, the start page and the DuckDuckGo export import)
+Effective date: 22 November 2026 (updated for version 1.3.0: the new-version check, the start page and the DuckDuckGo export import)
 
 ## In short
 

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bookmark syncer helper",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Works with the Bookmark syncer app: notes, tags and categories for the open page, and deletes the bookmarks you removed in the app, through the browser itself.",
   "permissions": [
     "bookmarks",
