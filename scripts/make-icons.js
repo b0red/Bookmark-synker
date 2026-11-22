@@ -1,4 +1,4 @@
-// Draws the extension icons and the app icon (blue rounded tile with a white bookmark ribbon). No dependencies.
+// Draws the extension icons, the app icon and the Microsoft Store tiles (a blue tile with a little house; its door is a bookmark ribbon). No dependencies.
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
@@ -19,36 +19,45 @@ function chunk(type, data) {
   return Buffer.concat([len, td, crc]);
 }
 
+// The icon: "a home for your bookmarks". A blue rounded tile, a little off-white house, and an orange bookmark ribbon as its door.
+// Shapes are in a 100 × 100 grid. Later layers paint over earlier ones.
+const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const inPoly = (pts) => (x, y) => {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+};
+const inRoundRect = (x0, y0, x1, y1, r) => (x, y) => {
+  if (x < x0 || x > x1 || y < y0 || y > y1) return false;
+  const cx = Math.min(Math.max(x, x0 + r), x1 - r), cy = Math.min(Math.max(y, y0 + r), y1 - r);
+  return (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
+};
+const LAYERS = [
+  { color: hex('#00A3CC'), test: inRoundRect(0, 0, 100, 100, 22) },                                         // tile
+  { color: hex('#FBF6EC'), test: inRoundRect(62, 22, 71, 40, 2) },                                          // chimney
+  { color: hex('#FBF6EC'), test: inPoly([[50, 17], [85, 47], [78, 47], [78, 83], [22, 83], [22, 47], [15, 47]]) }, // house
+  { color: hex('#E8833A'), test: inPoly([[42, 52], [58, 52], [58, 83], [50, 75], [42, 83]]) },                // ribbon door
+];
+
 // size: the tile; w × h: the image, with the tile centered on a transparent background (for wide Store tiles).
 function icon(size, w = size, h = size) {
   const ox = (w - size) / 2, oy = (h - size) / 2;
-  const S = 4; // supersampling for smooth edges
+  const S = 8; // supersampling for smooth edges
   const px = Buffer.alloc(w * h * 4);
-  const r = size * 0.22; // corner radius
-  const inTile = (x, y) => {
-    const cx = Math.min(Math.max(x, r), size - r), cy = Math.min(Math.max(y, r), size - r);
-    return (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
-  };
-  // Ribbon: a rectangle with a V notch cut from the bottom.
-  const L = size * 0.32, R = size * 0.68, T = size * 0.2, B = size * 0.8, notch = size * 0.16;
-  const inRibbon = (x, y) => {
-    if (x < L || x > R || y < T || y > B) return false;
-    const mid = (L + R) / 2, half = (R - L) / 2;
-    const notchTop = B - notch * (1 - Math.abs(x - mid) / half);
-    return y < notchTop;
-  };
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    let tile = 0, rib = 0;
+    let r = 0, g = 0, b = 0, n = 0;
     for (let sy = 0; sy < S; sy++) for (let sx = 0; sx < S; sx++) {
-      const fx = x - ox + (sx + 0.5) / S, fy = y - oy + (sy + 0.5) / S;
-      if (inTile(fx, fy)) { tile++; if (inRibbon(fx, fy)) rib++; }
+      const u = ((x - ox + (sx + 0.5) / S) / size) * 100, v = ((y - oy + (sy + 0.5) / S) / size) * 100;
+      let c = null;
+      for (const l of LAYERS) if (l.test(u, v)) c = l.color;
+      if (c) { r += c[0]; g += c[1]; b += c[2]; n++; }
     }
-    const a = tile / (S * S), mix = tile ? rib / tile : 0;
     const i = (y * w + x) * 4;
-    px[i] = Math.round(0x3d + (255 - 0x3d) * mix);
-    px[i + 1] = Math.round(0x6e + (255 - 0x6e) * mix);
-    px[i + 2] = Math.round(0xf5 + (255 - 0xf5) * mix);
-    px[i + 3] = Math.round(255 * a);
+    if (n) { px[i] = Math.round(r / n); px[i + 1] = Math.round(g / n); px[i + 2] = Math.round(b / n); }
+    px[i + 3] = Math.round((255 * n) / (S * S));
   }
   const raw = Buffer.alloc((w * 4 + 1) * h);
   for (let y = 0; y < h; y++) { raw[y * (w * 4 + 1)] = 0; px.copy(raw, y * (w * 4 + 1) + 1, y * w * 4, (y + 1) * w * 4); }
