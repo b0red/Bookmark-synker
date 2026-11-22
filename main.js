@@ -42,6 +42,7 @@ function t(s, v) {
 const tn = (n, one, many, v) => t(n === 1 ? one : many, { n, ...v });
 // Error messages from the helper modules (src/) are English; these are translated on their way to the window.
 const ERROR_PATTERNS = [
+  [/^(.+) did not shut down cleanly\. Open .+, close it again, then retry\.$/, 'browser', '{browser} did not shut down cleanly. Open {browser}, close it again, then retry.'],
   [/^(.+) is running\. Close it completely \(check the system tray\) and try again\.$/, 'browser', '{browser} is running. Close it completely (check the system tray) and try again.'],
   [/^Ollama doesn't have the model "(.+)" yet\. In a terminal, run: ollama pull .+$/, 'model', 'Ollama doesn\'t have the model "{model}" yet. In a terminal, run: ollama pull {model}'],
   [/^Ollama doesn't have the model "(.+)" yet\. Run: ollama pull .+$/, 'model', 'Ollama doesn\'t have the model "{model}" yet. In a terminal, run: ollama pull {model}'],

@@ -2,7 +2,7 @@
 
 *A small vibecoded app for syncing bookmarks between multiple browsers.*
 
-A Windows desktop app that reads the bookmarks from every browser on your PC (Chrome, Edge, Brave, Vivaldi, Opera, Firefox), merges the duplicates, and gives you one searchable, categorized library. You can sort it with built-in rules, a local AI (Ollama), or Claude, check which links are dead, clean out what you no longer need, and export the result back to any browser.
+A Windows desktop app that reads the bookmarks from every browser on your PC (Chrome, Edge, Brave, Vivaldi, Opera, Comet, Firefox, Zen, Floorp, Waterfox), merges the duplicates, and gives you one searchable, categorized library. You can sort it with built-in rules, a local AI (Ollama), or Claude, check which links are dead, clean out what you no longer need, and export the result back to any browser.
 
 Your browsers' own bookmarks are only **read**, except when you click **Sync to browsers** (or use the browser extension), which removes the ones you deleted after showing a preview.
 
@@ -12,7 +12,7 @@ Your browsers' own bookmarks are only **read**, except when you click **Sync to 
 
 | | |
 |---|---|
-| **Import** | Finds every browser profile on the PC automatically. You can also import any exported `bookmarks.html`. Re-importing only adds what's new. |
+| **Import** | Finds every browser profile on the PC automatically; browsers you don't have never show up. You can also import any exported `bookmarks.html`. Re-importing only adds what's new. |
 | **Merge duplicates** | URLs are cleaned up (tracking parameters, `www.`, trailing slashes), so the same page saved in three browsers becomes one entry that remembers every place it came from. |
 | **Near-duplicates** | *Possible duplicates* lists the same page under different URLs (`m.` and AMP pages, `youtu.be` links, `index.html`, same title on the same page). **Keep this one** merges the others into it (the browsers aren't touched), or mark them *Not duplicates*. With Undo. |
 | **Import automatically** | New bookmarks are imported when the app starts and while it's open (about once a minute; Firefox at most every 10 minutes). Only profiles you imported before. Settings to turn it off. |

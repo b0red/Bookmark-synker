@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **More browsers**: Comet (Perplexity), Zen, Floorp and Waterfox are found by Import, Import automatically and Sync to browsers. Only browsers that are installed are listed
+- **New icon**: a little house whose door is a bookmark ribbon
 - **Microsoft Store package**: `npm run dist:store` builds an `.appx` for the Store. It uses the same library folder as the normal installer, so you can switch between them. In the Store version, *Start with Windows* is turned on in Windows Settings → Apps → Startup instead of in the app
 
 ## 1.2.0 (2026-11-21)

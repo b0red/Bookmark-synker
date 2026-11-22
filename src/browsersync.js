@@ -7,7 +7,8 @@ const { execFile } = require('child_process');
 const { detectSources } = require('./importers');
 const { normalizeUrl } = require('./normalize');
 
-const EXE = { Chrome: 'chrome.exe', Chromium: 'chrome.exe', Edge: 'msedge.exe', Brave: 'brave.exe', Vivaldi: 'vivaldi.exe', Opera: 'opera.exe', Firefox: 'firefox.exe' };
+const EXE = { Chrome: 'chrome.exe', Chromium: 'chrome.exe', Edge: 'msedge.exe', Brave: 'brave.exe', Vivaldi: 'vivaldi.exe', Opera: 'opera.exe', Comet: 'comet.exe',
+  Firefox: 'firefox.exe', Zen: 'zen.exe', Floorp: 'floorp.exe', Waterfox: 'waterfox.exe' };
 // "Opera" and "Opera GX" both run as opera.exe.
 const exeOf = (browser) => EXE[browser] || (/^opera/i.test(browser) ? 'opera.exe' : '');
 
@@ -128,9 +129,10 @@ function firefoxPlan(file, removed, SQL) {
   } finally { db.close(); }
 }
 
-function firefoxApply(file, removed, SQL) {
+// browser: the name in error messages (Zen, Floorp and Waterfox use the same file format as Firefox).
+function firefoxApply(file, removed, SQL, browser = 'Firefox') {
   // A non-empty -wal file holds changes not yet in places.sqlite; rewriting the main file would lose them.
-  if (walState(file) > 0) throw new Error('Firefox did not shut down cleanly. Open Firefox, close it again, then retry.');
+  if (walState(file) > 0) throw new Error(`${browser} did not shut down cleanly. Open ${browser}, close it again, then retry.`);
   const db = openFirefox(file, SQL);
   try {
     const { bookmarks, tagEntries } = firefoxTargets(db, removed);
@@ -181,7 +183,7 @@ async function plan(removedNorms, SQL) {
   const running = await runningProcesses();
   const out = [];
   for (const s of detectSources()) {
-    const entry = { label: s.label, browser: s.browser, path: s.path, running: running.has(exeOf(s.browser)), matches: [], synced: false };
+    const entry = { label: s.label, browser: s.browser, type: s.type, path: s.path, running: running.has(exeOf(s.browser)), matches: [], synced: false };
     try {
       Object.assign(entry, s.type === 'firefox' ? firefoxPlan(s.path, removed, SQL) : chromiumPlan(s.path, removed));
     } catch (e) {
@@ -202,7 +204,7 @@ async function apply(labels, removedNorms, SQL) {
       continue;
     }
     try {
-      results.push({ label: s.label, ...(s.type === 'firefox' ? firefoxApply(s.path, removed, SQL) : chromiumApply(s.path, removed)) });
+      results.push({ label: s.label, ...(s.type === 'firefox' ? firefoxApply(s.path, removed, SQL, s.browser) : chromiumApply(s.path, removed)) });
     } catch (e) {
       results.push({ label: s.label, error: e.message });
     }
@@ -270,7 +272,7 @@ function restoreFile(s, backupFile, SQL) {
   const known = backupsFor(s, SQL).find(b => path.resolve(b.file) === path.resolve(String(backupFile)));
   if (!known) throw new Error('That backup was not found.');
   if (s.type === 'firefox' && walState(s.path) > 0) {
-    throw new Error('Firefox did not shut down cleanly. Open Firefox, close it again, then retry.');
+    throw new Error(`${s.browser} did not shut down cleanly. Open ${s.browser}, close it again, then retry.`);
   }
   if (countBookmarks(s.type, known.file, SQL) === null) throw new Error('That backup file is damaged and was not restored.');
   const saved = backup(s.path);

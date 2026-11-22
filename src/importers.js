@@ -15,10 +15,20 @@ const CHROMIUM_BROWSERS = [
   { name: 'Brave', dir: path.join(LOCAL, 'BraveSoftware', 'Brave-Browser', 'User Data') },
   { name: 'Vivaldi', dir: path.join(LOCAL, 'Vivaldi', 'User Data') },
   { name: 'Chromium', dir: path.join(LOCAL, 'Chromium', 'User Data') },
+  { name: 'Comet', dir: path.join(LOCAL, 'Perplexity', 'Comet', 'User Data') },
   { name: 'Opera', dir: path.join(ROAMING, 'Opera Software'), flat: true },
 ];
 
+// Firefox and the browsers built on it keep the same places.sqlite in <dir>Profiles<profile>.
+const FIREFOX_BROWSERS = [
+  { name: 'Firefox', dir: path.join(ROAMING, 'Mozilla', 'Firefox') },
+  { name: 'Zen', dir: path.join(ROAMING, 'zen') },
+  { name: 'Floorp', dir: path.join(ROAMING, 'Floorp') },
+  { name: 'Waterfox', dir: path.join(ROAMING, 'Waterfox') },
+];
+
 // ---------- detection ----------
+// Only browsers that are installed (their profile folder exists) are listed, so the others never show up.
 
 function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
@@ -53,14 +63,16 @@ function detectSources() {
     }
   }
 
-  const ffRoot = path.join(ROAMING, 'Mozilla', 'Firefox', 'Profiles');
-  for (const prof of listDirs(ffRoot)) {
-    const file = path.join(ffRoot, prof, 'places.sqlite');
-    let size = 0;
-    try { size = fs.statSync(file).size; } catch { continue; }
-    if (size === 0) continue; // empty/unused profile
-    const pretty = prof.includes('.') ? prof.slice(prof.indexOf('.') + 1) : prof;
-    found.push({ type: 'firefox', browser: 'Firefox', profile: pretty, path: file, label: `Firefox · ${pretty}` });
+  for (const b of FIREFOX_BROWSERS) {
+    const ffRoot = path.join(b.dir, 'Profiles');
+    for (const prof of listDirs(ffRoot)) {
+      const file = path.join(ffRoot, prof, 'places.sqlite');
+      let size = 0;
+      try { size = fs.statSync(file).size; } catch { continue; }
+      if (size === 0) continue; // empty/unused profile
+      const pretty = prof.includes('.') ? prof.slice(prof.indexOf('.') + 1) : prof;
+      found.push({ type: 'firefox', browser: b.name, profile: pretty, path: file, label: `${b.name} · ${pretty}` });
+    }
   }
 
   return found;

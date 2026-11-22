@@ -511,7 +511,7 @@ async function loadSyncPlan() {
       const n = p.matches.length;
       const notes = [];
       // Synced Chromium profiles: deleting in the file can be undone by the sync server, so the extension is the way.
-      const useExt = p.synced && p.browser !== 'Firefox';
+      const useExt = p.synced && p.type !== 'firefox'; // Firefox-based browsers (Zen, Floorp, Waterfox) pass deletions on through Firefox Sync
       if (useExt) notes.push(`<span class="warn-text">${t('This profile syncs with your {browser} account, so its sync server may put file deletions back. <b>Use the browser extension for this one</b> (works with {browser} open).', { browser: esc(p.browser) })}</span>`);
       else if (p.synced) notes.push(`<span class="muted">${t('Syncs with your Firefox account. Firefox Sync passes the deletions on to your other devices.')}</span>`);
       if (p.running && !useExt) notes.push(`<span class="warn-text">${t('{browser} is running. Close it completely first (also check the system tray).', { browser: esc(p.browser) })}</span>`);

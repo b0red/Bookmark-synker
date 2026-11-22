@@ -450,7 +450,7 @@ var SV_STRINGS = {
   'The damaged file is kept as {name} in the data folder.': 'Den skadade filen finns kvar som {name} i datamappen.',
   // Errors from the helper modules (translated in main.js, tErr)
   '{browser} is running. Close it completely (check the system tray) and try again.': '{browser} är igång. Stäng den helt (titta i meddelandefältet) och försök igen.',
-  'Firefox did not shut down cleanly. Open Firefox, close it again, then retry.': 'Firefox stängdes inte ordentligt. Öppna Firefox, stäng det igen och försök sedan på nytt.',
+  '{browser} did not shut down cleanly. Open {browser}, close it again, then retry.': '{browser} stängdes inte ordentligt. Öppna {browser}, stäng det igen och försök sedan på nytt.',
   'That browser profile was not found.': 'Webbläsarprofilen hittades inte.',
   'That backup was not found.': 'Säkerhetskopian hittades inte.',
   'That backup file is damaged and was not restored.': 'Säkerhetskopian är skadad och återställdes inte.',

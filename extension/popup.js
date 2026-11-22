@@ -12,7 +12,7 @@ const APP_ACCESS = { origins: [`${BASE}/*`] };
 function browserName() {
   if (/Firefox\//.test(navigator.userAgent)) return 'Firefox';
   const brands = (navigator.userAgentData && navigator.userAgentData.brands) || [];
-  const known = brands.map(b => b.brand).find(b => /Edge|Chrome|Brave|Opera|Vivaldi/i.test(b) && !/Chromium/i.test(b));
+  const known = brands.map(b => b.brand).find(b => /Edge|Chrome|Brave|Opera|Vivaldi|Comet/i.test(b) && !/Chromium/i.test(b));
   return known ? known.replace('Microsoft ', '').replace('Google ', '') : 'Chromium browser';
 }
 
